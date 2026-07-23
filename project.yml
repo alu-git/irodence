@@ -1,6 +1,6 @@
-name: HevyKimi
+name: Irodence
 options:
-  bundleIdPrefix: com.hevykimi
+  bundleIdPrefix: com.irodence
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
@@ -19,20 +19,20 @@ packages:
     from: 2.5.0
 
 targets:
-  HevyKimi:
+  Irodence:
     type: application
     platform: iOS
     sources:
-      - HevyKimi
+      - Irodence
     configFiles:
       Debug: Config/Debug.xcconfig
       Release: Config/Release.xcconfig
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.hevykimi.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.irodence.ios
         GENERATE_INFOPLIST_FILE: NO
-        INFOPLIST_FILE: HevyKimi/Info.plist
-        CODE_SIGN_ENTITLEMENTS: HevyKimi/HevyKimi.entitlements
+        INFOPLIST_FILE: Irodence/Info.plist
+        CODE_SIGN_ENTITLEMENTS: Irodence/Irodence.entitlements
         CODE_SIGN_STYLE: Automatic
     dependencies:
       - package: Supabase

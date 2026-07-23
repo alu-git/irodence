@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct HevyKimiApp: App {
+struct IrodenceApp: App {
     @StateObject private var authService = AuthService()
 
     var body: some Scene {

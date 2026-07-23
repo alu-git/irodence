@@ -1,4 +1,4 @@
-# 举重榜 (HevyKimi)
+# Irodence
 
 Native iOS strength-training tracker for the China market. Hevy-style workout
 logging + bodyweight-adjusted strength rankings (DOTS) + WeChat login.
@@ -20,7 +20,7 @@ cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
 xcodegen generate
 
 # 3. Open and build
-open HevyKimi.xcodeproj
+open Irodence.xcodeproj
 ```
 
 ## Database
@@ -61,7 +61,7 @@ Sign in with Apple works today via Supabase's native provider — enable
 
 ```
 Config/                  xcconfigs; Secrets.xcconfig is gitignored
-HevyKimi/
+Irodence/
   Core/Config/           AppConfig (reads keys from Info.plist)
   Core/Services/         SupabaseService, AuthService
   Features/              per-feature SwiftUI code (Auth done; rest stubbed)

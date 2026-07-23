@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
-  const syntheticEmail = `wx_${tokenData.openid}@wechat.hevykimi.local`;
+  const syntheticEmail = `wx_${tokenData.openid}@wechat.irodence.local`;
   const { data: listData, error: listError } = await supabase.auth.admin
     .listUsers();
   if (listError) {

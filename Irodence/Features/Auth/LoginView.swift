@@ -11,7 +11,7 @@ struct LoginView: View {
             Spacer()
 
             VStack(spacing: 8) {
-                Text("举重榜")
+                Text("Irodence")
                     .font(.system(size: 40, weight: .bold))
                 Text("记录训练 · 冲击排行榜")
                     .font(.subheadline)
