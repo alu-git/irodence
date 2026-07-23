@@ -24,8 +24,9 @@ struct MainTabView: View {
                 .tabItem { Label("动作库", systemImage: "list.bullet.rectangle") }
                 .environmentObject(library)
 
-            placeholder("排行榜", systemImage: "trophy.fill")
+            LeaderboardView(userID: userID)
                 .tabItem { Label("排行榜", systemImage: "trophy.fill") }
+                .environmentObject(library)
 
             ProfileView(userID: userID)
                 .tabItem { Label("我的", systemImage: "person.fill") }

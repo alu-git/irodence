@@ -27,6 +27,10 @@ final class ExerciseService: ObservableObject {
                 .order("name_zh")
                 .execute()
                 .value
+            // Register core-lift IDs for tier/DOTS lookups elsewhere
+            for exercise in exercises {
+                ExerciseIDCache.shared.register(exerciseID: exercise.id, nameEn: exercise.nameEn)
+            }
         } catch {
             errorMessage = "动作库加载失败，请检查网络"
         }
