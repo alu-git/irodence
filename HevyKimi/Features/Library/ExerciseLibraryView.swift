@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Exercise library — searchable list grouped by muscle group.
 struct ExerciseLibraryView: View {
-    @StateObject private var service = ExerciseService()
+    @EnvironmentObject private var service: ExerciseService
     @State private var query = ""
 
     var body: some View {
@@ -81,5 +81,6 @@ struct ExerciseRow: View {
 
 #Preview {
     ExerciseLibraryView()
+        .environmentObject(ExerciseService())
         .preferredColorScheme(.dark)
 }

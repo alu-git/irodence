@@ -11,8 +11,8 @@ struct RootView: View {
                 ProgressView()
             case .signedOut:
                 LoginView()
-            case .signedIn:
-                MainTabView()
+            case .signedIn(let userID):
+                MainTabView(userID: userID)
             }
         }
         .animation(.default, value: authService.state)

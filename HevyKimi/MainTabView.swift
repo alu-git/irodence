@@ -1,16 +1,26 @@
 import SwiftUI
 
-/// Placeholder tab shell — replaced feature-by-feature in steps 2–6.
+/// Main tab shell. Owns the shared services (exercise library, active
+/// workout) and injects them into the tabs.
 struct MainTabView: View {
     @EnvironmentObject private var authService: AuthService
+    @StateObject private var library = ExerciseService()
+    @StateObject private var workoutManager: WorkoutManager
+
+    init(userID: UUID) {
+        _workoutManager = StateObject(wrappedValue: WorkoutManager(userID: userID))
+    }
 
     var body: some View {
         TabView {
-            placeholder("训练", systemImage: "dumbbell.fill")
+            WorkoutTabView()
                 .tabItem { Label("训练", systemImage: "dumbbell.fill") }
+                .environmentObject(workoutManager)
+                .environmentObject(library)
 
             ExerciseLibraryView()
                 .tabItem { Label("动作库", systemImage: "list.bullet.rectangle") }
+                .environmentObject(library)
 
             placeholder("排行榜", systemImage: "trophy.fill")
                 .tabItem { Label("排行榜", systemImage: "trophy.fill") }
@@ -55,7 +65,7 @@ struct ComingSoonView: View {
 }
 
 #Preview {
-    MainTabView()
+    MainTabView(userID: UUID())
         .environmentObject(AuthService())
         .preferredColorScheme(.dark)
 }
