@@ -69,6 +69,24 @@ final class AuthService: ObservableObject {
         }
     }
 
+    // MARK: - Test bypass (DEBUG only)
+
+    /// Skips the real login flow for development.
+    /// 1. Tries Supabase anonymous sign-in — a REAL session, so all RLS-backed
+    ///    data works. Requires "Anonymous sign-ins" enabled in the dashboard
+    ///    (Authentication → Sign In / Up → Anonymous).
+    /// 2. Falls back to a local-only preview session (random UUID) so the UI
+    ///    is navigable without any backend session — data just won't load.
+    func signInAsTestUser() async {
+        do {
+            let session = try await client.auth.signInAnonymously()
+            state = .signedIn(userID: session.user.id)
+        } catch {
+            // Local preview fallback — no backend session
+            state = .signedIn(userID: UUID())
+        }
+    }
+
     // MARK: - WeChat Sign In
 
     /// STUB — requires the WeChat OpenSDK (not an SPM package; see README "WeChat setup").

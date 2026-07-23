@@ -44,6 +44,19 @@ struct LoginView: View {
                 .frame(height: 50)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
+                #if DEBUG
+                // Dev-only bypass: anonymous sign-in, or local preview if the
+                // backend doesn't allow anonymous sessions yet.
+                Button {
+                    Task { await authService.signInAsTestUser() }
+                } label: {
+                    Label("测试进入", systemImage: "hammer.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 4)
+                #endif
+
                 if let error = authService.errorMessage {
                     Text(error)
                         .font(.footnote)
