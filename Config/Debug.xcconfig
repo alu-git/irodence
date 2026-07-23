@@ -1,0 +1,5 @@
+// Debug configuration. Secrets live in Secrets.xcconfig (gitignored).
+// Create it: cp Config/Secrets.example.xcconfig Config/Secrets.xcconfig
+#include "Secrets.xcconfig"
+
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG

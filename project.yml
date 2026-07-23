@@ -1,0 +1,39 @@
+name: HevyKimi
+options:
+  bundleIdPrefix: com.hevykimi
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+
+packages:
+  Supabase:
+    url: https://github.com/supabase/supabase-swift
+    from: 2.5.0
+
+targets:
+  HevyKimi:
+    type: application
+    platform: iOS
+    sources:
+      - HevyKimi
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hevykimi.ios
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: HevyKimi/Info.plist
+        CODE_SIGN_ENTITLEMENTS: HevyKimi/HevyKimi.entitlements
+        CODE_SIGN_STYLE: Automatic
+    dependencies:
+      - package: Supabase
+        product: Supabase

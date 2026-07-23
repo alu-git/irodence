@@ -1,0 +1,18 @@
+# Secrets — never commit
+Config/Secrets.xcconfig
+.env
+.env.*
+
+# Xcode
+*.xcodeproj
+xcuserdata/
+DerivedData/
+*.xcuserstate
+*.xcscmblueprint
+
+# macOS
+.DS_Store
+
+# Supabase local
+supabase/.branches
+supabase/.temp
