@@ -6,8 +6,10 @@ struct MainTabView: View {
     @EnvironmentObject private var authService: AuthService
     @StateObject private var library = ExerciseService()
     @StateObject private var workoutManager: WorkoutManager
+    private let userID: UUID
 
     init(userID: UUID) {
+        self.userID = userID
         _workoutManager = StateObject(wrappedValue: WorkoutManager(userID: userID))
     }
 
@@ -25,22 +27,14 @@ struct MainTabView: View {
             placeholder("排行榜", systemImage: "trophy.fill")
                 .tabItem { Label("排行榜", systemImage: "trophy.fill") }
 
-            profilePlaceholder
+            ProfileView(userID: userID)
                 .tabItem { Label("我的", systemImage: "person.fill") }
+                .environmentObject(library)
         }
     }
 
     private func placeholder(_ title: String, systemImage: String) -> some View {
         ComingSoonView(title: title, systemImage: systemImage, subtitle: "即将上线")
-    }
-
-    private var profilePlaceholder: some View {
-        VStack(spacing: 16) {
-            ComingSoonView(title: "我的", systemImage: "person.fill", subtitle: "等级与力量标准即将上线")
-            Button("退出登录", role: .destructive) {
-                Task { await authService.signOut() }
-            }
-        }
     }
 }
 
