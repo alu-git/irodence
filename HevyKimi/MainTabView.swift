@@ -9,7 +9,7 @@ struct MainTabView: View {
             placeholder("训练", systemImage: "dumbbell.fill")
                 .tabItem { Label("训练", systemImage: "dumbbell.fill") }
 
-            placeholder("动作库", systemImage: "list.bullet.rectangle")
+            ExerciseLibraryView()
                 .tabItem { Label("动作库", systemImage: "list.bullet.rectangle") }
 
             placeholder("排行榜", systemImage: "trophy.fill")
