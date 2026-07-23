@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 /// Profile tab: strength tiers per core lift + sex/bodyweight settings
 /// (both feed the DOTS calculation).
@@ -6,10 +7,10 @@ struct ProfileView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var library: ExerciseService
     @StateObject private var service: ProfileService
+    @StateObject private var progress = ProgressService()
 
     @State private var showBodyweightPrompt = false
     @State private var bodyweightInput = ""
-    @State private var selectedSex: Sex = .male
 
     init(userID: UUID) {
         _service = StateObject(wrappedValue: ProfileService(userID: userID))
@@ -21,6 +22,7 @@ struct ProfileView: View {
                 if let profile = service.profile {
                     headerSection(profile)
                     settingsSection(profile)
+                    bodyweightSection
                     tierSection(profile)
                 } else if service.isLoading {
                     Section { ProgressView() }
@@ -39,14 +41,24 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("我的")
-            .refreshable { await service.load(library: library) }
-            .task { await service.load(library: library) }
-            .alert("输入体重 (kg)", isPresented: $showBodyweightPrompt) {
+            .refreshable {
+                await service.load(library: library)
+                await progress.loadBodyweightLogs()
+            }
+            .task {
+                await service.load(library: library)
+                await progress.loadBodyweightLogs()
+            }
+            .alert("记录体重 (kg)", isPresented: $showBodyweightPrompt) {
                 TextField("kg", text: $bodyweightInput)
                     .keyboardType(.decimalPad)
                 Button("保存") {
-                    let bw = Double(bodyweightInput.replacingOccurrences(of: ",", with: "."))
-                    Task { await service.update(sex: service.profile?.sex, bodyweightKg: bw) }
+                    let bw = Double(bodyweightInput.replacingOccurrences(of: ",", with: ".")) ?? 0
+                    Task {
+                        if await progress.logBodyweight(bw) {
+                            await service.load(library: library) // refresh DOTS inputs
+                        }
+                    }
                 }
                 Button("取消", role: .cancel) {}
             }
@@ -127,6 +139,59 @@ struct ProfileView: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    /// Dated bodyweight log — feeds DOTS and charts the trend.
+    private var bodyweightSection: some View {
+        Section("体重记录") {
+            if progress.bodyweightLogs.count >= 2 {
+                Chart(progress.bodyweightLogs) { log in
+                    LineMark(
+                        x: .value("日期", log.loggedAt, unit: .day),
+                        y: .value("体重", log.weightKg)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    PointMark(
+                        x: .value("日期", log.loggedAt, unit: .day),
+                        y: .value("体重", log.weightKg)
+                    )
+                    .symbolSize(20)
+                }
+                .chartYScale(domain: bodyweightDomain)
+                .frame(height: 140)
+            }
+
+            ForEach(progress.bodyweightLogs.suffix(3).reversed()) { log in
+                HStack {
+                    Text("\(formatKg(log.weightKg)) kg")
+                        .font(.headline.monospacedDigit())
+                    Spacer()
+                    Text(log.loggedAt, format: .dateTime.month().day())
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onDelete { offsets in
+                let recent = Array(progress.bodyweightLogs.suffix(3).reversed())
+                for index in offsets {
+                    Task { await progress.deleteBodyweightLog(recent[index].id) }
+                }
+            }
+
+            Button {
+                bodyweightInput = service.profile?.bodyweightKg.map(formatKg) ?? ""
+                showBodyweightPrompt = true
+            } label: {
+                Label("记录今日体重", systemImage: "plus.circle")
+            }
+        }
+    }
+
+    private var bodyweightDomain: ClosedRange<Double> {
+        let values = progress.bodyweightLogs.map(\.weightKg)
+        let lo = (values.min() ?? 40) - 2
+        let hi = (values.max() ?? 100) + 2
+        return lo...hi
     }
 
     private func formatKg(_ value: Double) -> String {
