@@ -77,6 +77,43 @@ values (
     now()
 );
 
+-- 2c. Identities for the seeded users. GoTrue ≥ ~v2.177 no longer backfills
+--     auth.identities for SQL-inserted users, and password sign-in fails with
+--     HTTP 500 "Database error querying schema" when the row is missing.
+insert into auth.identities (
+    id, user_id, provider_id, identity_data, provider,
+    last_sign_in_at, created_at, updated_at
+)
+select
+    gen_random_uuid(),
+    u.id,
+    u.email,
+    jsonb_build_object('sub', u.id::text, 'email', u.email),
+    'email',
+    now(),
+    now(),
+    now()
+from auth.users u
+where u.email like 'mock-%@irodence.app' or u.email = 'dev-test@irodence.app'
+on conflict do nothing;
+
+-- 2d. Backfill columns GoTrue v2.193+ scans as non-NULL at sign-in. Raw
+--     inserts leave them NULL (GoTrue's own signup writes ''), which makes
+--     password sign-in 500 with "Database error querying schema".
+--     phone is deliberately excluded: users_phone_key is UNIQUE, so ''
+--     can only ever appear once — NULL is the correct value for email users.
+update auth.users
+set confirmation_token         = coalesce(confirmation_token, ''),
+    recovery_token             = coalesce(recovery_token, ''),
+    reauthentication_token     = coalesce(reauthentication_token, ''),
+    email_change               = coalesce(email_change, ''),
+    email_change_token_new     = coalesce(email_change_token_new, ''),
+    email_change_token_current = coalesce(email_change_token_current, ''),
+    phone_change_token         = coalesce(phone_change_token, ''),
+    phone_change               = coalesce(phone_change, ''),
+    email_change_confirm_status = coalesce(email_change_confirm_status, 0)
+where email like 'mock-%@irodence.app' or email = 'dev-test@irodence.app';
+
 -- 3. Profile details (sex + bodyweight feed DOTS / leaderboard tiers).
 update public.profiles p
 set sex = v.sex, bodyweight_kg = v.bw, avatar_url = v.avatar
