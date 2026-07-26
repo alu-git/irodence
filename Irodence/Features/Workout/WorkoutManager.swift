@@ -81,6 +81,13 @@ final class WorkoutManager: ObservableObject {
         let weightKg: Double
         let reps: Int
         let estimated1RM: Double
+        /// Pre-session best est. 1RM for this exercise (nil = first record).
+        let previousBest1RM: Double?
+
+        /// Improvement over the previous record, nil for first-time records.
+        var deltaKg: Double? {
+            previousBest1RM.map { estimated1RM - $0 }
+        }
     }
 
     @Published private(set) var workoutID: UUID?
@@ -453,6 +460,26 @@ final class WorkoutManager: ObservableObject {
         let totalVolumeKg: Double
         let completedSets: Int
         let prs: [PRResult]
+        /// Best DOTS score across this session's lifts (nil without
+        /// sex/bodyweight on the profile).
+        let dotsScore: Double?
+        /// dotsScore minus the rolling average of recent sessions.
+        let dotsDelta: Double?
+        /// Consecutive training weeks including this one (0 when unknown).
+        let streakWeeks: Int
+        /// Core lift that moved closest to the next strength tier.
+        let tierMoment: TierMoment?
+    }
+
+    /// Tier progress for the lift that gained the most ground this session.
+    struct TierMoment: Equatable {
+        let lift: CoreLift
+        let tier: StrengthTier
+        let nextTier: StrengthTier?
+        let progressBefore: Double
+        let progressAfter: Double
+        /// DOTS still needed for the next tier (nil at elite).
+        let dotsToNext: Double?
     }
 
     /// Finishes the workout: stamps finished_at, computes volume + PRs.
@@ -472,14 +499,20 @@ final class WorkoutManager: ObservableObject {
                 }
             }.reduce(0, +)
 
-            let prs = await detectAndSavePRs(workoutID: id)
+            let prOutcome = await detectAndSavePRs(workoutID: id)
+            let context = await buildRewardContext(
+                workoutID: id, preSessionBests: prOutcome.preSessionBests)
 
             summary = Summary(
                 name: name,
                 duration: Date().timeIntervalSince(startedAt),
                 totalVolumeKg: volume,
                 completedSets: completed.count,
-                prs: prs
+                prs: prOutcome.prs,
+                dotsScore: context.dots,
+                dotsDelta: context.delta,
+                streakWeeks: context.streak,
+                tierMoment: context.tier
             )
             reset()
             return true
@@ -490,8 +523,12 @@ final class WorkoutManager: ObservableObject {
     }
 
     /// Compares each exercise's best est. 1RM (Epley) this session against
-    /// stored PRs and inserts new records.
-    private func detectAndSavePRs(workoutID: UUID) async -> [PRResult] {
+    /// stored PRs and inserts new records. Also returns the pre-session
+    /// bests so the reward context can measure tier progress without a
+    /// second fetch.
+    private func detectAndSavePRs(workoutID: UUID) async
+        -> (prs: [PRResult], preSessionBests: [UUID: Double])
+    {
         let current = (try? await service.fetchCurrentPRs(userID: userID)) ?? [:]
         var results: [PRResult] = []
 
@@ -515,10 +552,119 @@ final class WorkoutManager: ObservableObject {
                     estimated_1rm: est1RM, workout_id: workoutID
                 ))
                 results.append(PRResult(exercise: ex.exercise, weightKg: weight,
-                                        reps: reps, estimated1RM: est1RM))
+                                        reps: reps, estimated1RM: est1RM,
+                                        previousBest1RM: current[ex.exercise.id]))
             } catch { /* PR save failure shouldn't block the summary */ }
         }
-        return results
+        return (results, current)
+    }
+
+    /// Best-effort data for the summary's reward moment: session DOTS and
+    /// its delta vs. recent sessions, the weekly streak, and tier progress.
+    /// Everything degrades to nil/0 on network failure — the base stats and
+    /// PRs are already in hand and always render.
+    private func buildRewardContext(workoutID: UUID, preSessionBests: [UUID: Double]) async
+        -> (dots: Double?, delta: Double?, streak: Int, tier: TierMoment?)
+    {
+        let inputs = try? await service.fetchStrengthInputs(userID: userID)
+        guard let sex = inputs?.sex, let bodyweight = inputs?.bodyweightKg, bodyweight > 0 else {
+            // Streak doesn't need DOTS inputs — still try to show it.
+            let streak = await computeStreak()
+            return (nil, nil, streak, nil)
+        }
+
+        func dots(_ liftedKg: Double) -> Double {
+            DOTSCalculator.score(liftedKg: liftedKg, bodyweightKg: bodyweight, sex: sex)
+        }
+
+        // Session best est-1RM per exercise, from local logging state.
+        var sessionBests: [UUID: (exercise: Exercise, est1RM: Double)] = [:]
+        for ex in exercises where ex.exercise.trackingMode == .weighted {
+            let best = ex.sets
+                .filter { $0.isCompleted && !$0.isWarmup && $0.isValid(for: .weighted) }
+                .map { s -> Double in
+                    let w = s.parsedWeight ?? 0, r = Double(s.parsedReps ?? 0)
+                    return r == 1 ? w : w * (1 + r / 30)
+                }
+                .max() ?? 0
+            if best > 0 { sessionBests[ex.exercise.id] = (ex.exercise, best) }
+        }
+
+        let sessionDots = sessionBests.values.map { dots($0.est1RM) }.max()
+
+        // Delta vs. the rolling average of the last 8 weeks' sessions.
+        var delta: Double?
+        if let sessionDots,
+           let recent = try? await service.fetchRecentSessionBests(
+               userID: userID, since: Date().addingTimeInterval(-56 * 86_400)) {
+            let priorDots = recent
+                .filter { $0.workoutID != workoutID }
+                .map { dots($0.bestEst1RM) }
+            if !priorDots.isEmpty {
+                delta = sessionDots - priorDots.reduce(0, +) / Double(priorDots.count)
+            }
+        }
+
+        let streak = await computeStreak()
+
+        // Tier moment: among core lifts performed this session, the one that
+        // gained the most progress toward its next tier.
+        var moment: TierMoment?
+        var bestGain = -Double.infinity
+        for lift in CoreLift.allCases {
+            guard let session = sessionBests.values.first(where: {
+                $0.exercise.nameEn == lift.exerciseNameEn
+            }) else { continue }
+            let before = preSessionBests[session.exercise.id] ?? 0
+            let after = max(before, session.est1RM)
+            let beforeStanding = StrengthStandards.progressToNextTier(
+                dots: dots(before), lift: lift, sex: sex)
+            let afterStanding = StrengthStandards.progressToNextTier(
+                dots: dots(after), lift: lift, sex: sex)
+            // Crossing a tier boundary counts as a full bar's worth of gain.
+            let gain = Double(afterStanding.tier.rawValue) + afterStanding.progress
+                     - Double(beforeStanding.tier.rawValue) - beforeStanding.progress
+            if gain > bestGain {
+                bestGain = gain
+                moment = TierMoment(
+                    lift: lift,
+                    tier: afterStanding.tier,
+                    nextTier: StrengthTier(rawValue: afterStanding.tier.rawValue + 1),
+                    progressBefore: beforeStanding.progress,
+                    progressAfter: afterStanding.progress,
+                    dotsToNext: afterStanding.nextBoundary.map { $0 - dots(after) }
+                )
+            }
+        }
+
+        return (sessionDots, delta, streak, moment)
+    }
+
+    /// Consecutive calendar weeks with ≥1 finished workout, counting back
+    /// from this week. Returns 0 if the history can't be loaded.
+    private func computeStreak() async -> Int {
+        guard let dates = try? await service.fetchWorkoutDates(
+            userID: userID, since: Date().addingTimeInterval(-366 * 86_400)
+        ) else { return 0 }
+
+        let calendar = Calendar.current
+        var weeks = Set<Date>()
+        for date in dates {
+            let comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+            if let weekStart = calendar.date(from: comps) {
+                weeks.insert(weekStart)
+            }
+        }
+
+        var streak = 0
+        var cursor = calendar.date(from: calendar.dateComponents(
+            [.yearForWeekOfYear, .weekOfYear], from: Date()))
+        // A workout earlier this week already counts the current week.
+        while let week = cursor, weeks.contains(week) {
+            streak += 1
+            cursor = calendar.date(byAdding: .weekOfYear, value: -1, to: week)
+        }
+        return streak
     }
 
     // MARK: - Templates

@@ -197,6 +197,85 @@ final class WorkoutService: Sendable {
             .execute()
     }
 
+    // MARK: - Reward context (post-workout summary)
+
+    /// Sex + bodyweight feeding the DOTS calculation.
+    func fetchStrengthInputs(userID: UUID) async throws -> (sex: Sex?, bodyweightKg: Double?) {
+        struct Row: Decodable {
+            let sex: Sex?
+            let bodyweight_kg: Double?
+        }
+        let row: Row = try await client
+            .from("profiles")
+            .select("sex, bodyweight_kg")
+            .eq("id", value: userID)
+            .single()
+            .execute()
+            .value
+        return (row.sex, row.bodyweight_kg)
+    }
+
+    /// One finished session: when it ended and its best Epley est-1RM
+    /// (weighted, non-warmup sets only).
+    struct SessionBest: Sendable {
+        let workoutID: UUID
+        let finishedAt: Date
+        let bestEst1RM: Double
+    }
+
+    /// Best est-1RM per finished session since `since` — feeds the rolling
+    /// DOTS average on the summary screen.
+    func fetchRecentSessionBests(userID: UUID, since: Date) async throws -> [SessionBest] {
+        struct JoinedRow: Decodable {
+            let workouts: WorkoutPart
+            let workout_sets: [SetPart]
+
+            struct WorkoutPart: Decodable {
+                let id: UUID
+                let finished_at: Date?
+            }
+            struct SetPart: Decodable {
+                let weight_kg: Double
+                let reps: Int?
+                let is_warmup: Bool
+            }
+        }
+
+        let rows: [JoinedRow] = try await client
+            .from("workout_exercises")
+            .select("workouts!inner(id, finished_at), workout_sets(weight_kg, reps, is_warmup)")
+            .eq("workouts.user_id", value: userID)
+            .gte("workouts.finished_at", value: since)
+            .execute()
+            .value
+
+        var bestByWorkout: [UUID: (date: Date, best: Double)] = [:]
+        for row in rows {
+            guard let finishedAt = row.workouts.finished_at else { continue }
+            for set in row.workout_sets where !set.is_warmup && set.weight_kg > 0 {
+                guard let reps = set.reps, reps > 0 else { continue }
+                let epley = reps == 1 ? set.weight_kg : set.weight_kg * (1 + Double(reps) / 30)
+                let entry = bestByWorkout[row.workouts.id] ?? (finishedAt, 0)
+                bestByWorkout[row.workouts.id] = (entry.date, max(entry.best, epley))
+            }
+        }
+        return bestByWorkout.map { SessionBest(workoutID: $0.key, finishedAt: $0.value.date,
+                                               bestEst1RM: $0.value.best) }
+    }
+
+    /// finished_at of every workout since `since` — feeds the weekly streak.
+    func fetchWorkoutDates(userID: UUID, since: Date) async throws -> [Date] {
+        struct Row: Decodable { let finished_at: Date? }
+        let rows: [Row] = try await client
+            .from("workouts")
+            .select("finished_at")
+            .eq("user_id", value: userID)
+            .gte("finished_at", value: since)
+            .execute()
+            .value
+        return rows.compactMap(\.finished_at)
+    }
+
     // MARK: - Templates
 
     func fetchTemplates(userID: UUID) async throws -> [(template: WorkoutTemplate, exercises: [WorkoutTemplateExercise])] {
