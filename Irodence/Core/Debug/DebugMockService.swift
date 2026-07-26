@@ -156,10 +156,12 @@ final class DebugMockService: ObservableObject {
     /// A fake Summary with three PRs so the trophy / stagger animations
     /// in WorkoutSummaryView can be previewed without training.
     static func mockSummary(library: ExerciseService) -> WorkoutManager.Summary {
-        let prSpecs: [(nameEn: String, nameZh: String, muscle: MuscleGroup, kg: Double, reps: Int)] = [
-            ("Bench Press", "卧推", .chest, 102.5, 3),
-            ("Barbell Back Squat", "深蹲", .quads, 140, 5),
-            ("Overhead Press", "推举", .shoulders, 57.5, 6),
+        // (exercise, kg × reps, pre-session best est. 1RM — nil = first record)
+        let prSpecs: [(nameEn: String, nameZh: String, muscle: MuscleGroup,
+                       kg: Double, reps: Int, prev: Double?)] = [
+            ("Bench Press", "卧推", .chest, 102.5, 3, 108.3),
+            ("Barbell Back Squat", "深蹲", .quads, 140, 5, 160.8),
+            ("Overhead Press", "推举", .shoulders, 57.5, 6, nil),
         ]
         let prs = prSpecs.map { spec in
             let exercise = library.exercises.first { $0.nameEn == spec.nameEn }
@@ -170,7 +172,8 @@ final class DebugMockService: ObservableObject {
                 )
             return WorkoutManager.PRResult(
                 exercise: exercise, weightKg: spec.kg, reps: spec.reps,
-                estimated1RM: spec.kg * (1 + Double(spec.reps) / 30)
+                estimated1RM: spec.kg * (1 + Double(spec.reps) / 30),
+                previousBest1RM: spec.prev
             )
         }
         return WorkoutManager.Summary(
@@ -178,7 +181,14 @@ final class DebugMockService: ObservableObject {
             duration: 62 * 60,
             totalVolumeKg: 8_640,
             completedSets: 14,
-            prs: prs
+            prs: prs,
+            dotsScore: 117.2,
+            dotsDelta: 4.2,
+            streakWeeks: 6,
+            tierMoment: WorkoutManager.TierMoment(
+                lift: .bench, tier: .intermediate, nextTier: .advanced,
+                progressBefore: 0.48, progressAfter: 0.58, dotsToNext: 12.1
+            )
         )
     }
 
