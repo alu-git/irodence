@@ -16,3 +16,6 @@ DerivedData/
 # Supabase local
 supabase/.branches
 supabase/.temp
+
+# Claude worktrees
+.claude/worktrees/
