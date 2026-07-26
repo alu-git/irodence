@@ -2,7 +2,7 @@ import SwiftUI
 
 enum BodyViewSide: String, CaseIterable {
     case front, back
-    var displayName: String { self == .front ? "前" : "后" }
+    var displayName: String { self == .front ? L10n.t("前", "Front") : L10n.t("后", "Back") }
 }
 
 enum BodyGender {
@@ -17,9 +17,12 @@ enum BodyGender {
 /// Each body part is drawn as left+right halves in one combined Path.
 struct MuscleDiagramView: View {
     let activated: Set<Muscle>
+    /// Synergists drawn at lower intensity under the primary highlights.
+    var secondaryActivated: Set<Muscle> = []
     var side: BodyViewSide = .front
     var gender: BodyGender = .male
     var highlightColor: Color = .accentColor
+    var secondaryColor: Color = .accentColor.opacity(0.45)
     var inactiveColor: Color = Color(.systemGray4)
     var outlineColor: Color = Color(.systemGray2)
 
@@ -57,10 +60,20 @@ struct MuscleDiagramView: View {
             ZStack {
                 // Inactive muscles (full body silhouette, neutral fill)
                 ForEach(Array(geometry.keys), id: \.self) { muscle in
-                    if !activated.contains(muscle) {
+                    if !activated.contains(muscle) && !secondaryActivated.contains(muscle) {
                         combinedPath(for: muscle)
                             .applying(transform)
                             .fill(inactiveColor)
+                            .transition(.opacity)
+                    }
+                }
+                // Secondary (synergist) muscles at lower intensity
+                ForEach(Array(geometry.keys), id: \.self) { muscle in
+                    if secondaryActivated.contains(muscle) && !activated.contains(muscle) {
+                        combinedPath(for: muscle)
+                            .applying(transform)
+                            .fill(secondaryColor)
+                            .transition(.opacity)
                     }
                 }
                 // Activated muscles on top
@@ -69,6 +82,7 @@ struct MuscleDiagramView: View {
                         combinedPath(for: muscle)
                             .applying(transform)
                             .fill(highlightColor)
+                            .transition(.opacity)
                     }
                 }
                 // Body outline stroke
@@ -76,6 +90,8 @@ struct MuscleDiagramView: View {
                     .applying(transform)
                     .stroke(outlineColor, lineWidth: 2)
             }
+            .animation(.easeInOut(duration: 0.35), value: activated)
+            .animation(.easeInOut(duration: 0.35), value: secondaryActivated)
         }
         .aspectRatio(viewBox.width / viewBox.height, contentMode: .fit)
         .accessibilityLabel("身体肌肉图，\(side.displayName)面")
@@ -102,9 +118,37 @@ struct MuscleDiagramView: View {
     }
 }
 
+/// Compact single-side diagram that auto-picks front or back so the
+/// highlighted muscles are actually visible — a small per-exercise
+/// thumbnail for dense lists like the social feed.
+struct MiniMuscleDiagram: View {
+    let primary: Set<Muscle>
+    var secondary: Set<Muscle> = []
+
+    private var side: BodyViewSide {
+        func coverage(_ geometry: [Muscle: [[String]]]) -> Int {
+            primary.union(secondary).filter { geometry[$0] != nil }.count
+        }
+        return coverage(MuscleGeometryData.Male.back) > coverage(MuscleGeometryData.Male.front)
+            ? .back : .front
+    }
+
+    var body: some View {
+        MuscleDiagramView(
+            activated: primary,
+            secondaryActivated: secondary,
+            side: side,
+            inactiveColor: Color(.systemGray5),
+            outlineColor: .clear
+        )
+        .accessibilityHidden(true)
+    }
+}
+
 /// Front/back pair with a toggle — the common use case.
 struct MuscleDiagramPairView: View {
     let activated: Set<Muscle>
+    var secondaryActivated: Set<Muscle> = []
     var gender: BodyGender = .male
     var highlightColor: Color = .accentColor
     @State private var side: BodyViewSide = .front
@@ -112,7 +156,8 @@ struct MuscleDiagramPairView: View {
     var body: some View {
         VStack(spacing: 8) {
             MuscleDiagramView(
-                activated: activated, side: side, gender: gender,
+                activated: activated, secondaryActivated: secondaryActivated,
+                side: side, gender: gender,
                 highlightColor: highlightColor
             )
             Picker("方向", selection: $side) {

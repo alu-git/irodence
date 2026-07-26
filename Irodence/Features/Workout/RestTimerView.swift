@@ -4,6 +4,7 @@ import SwiftUI
 struct RestTimerView: View {
     @Binding var restEndsAt: Date?
     @Binding var duration: TimeInterval
+    @State private var isPulsing = false
 
     private let presets: [TimeInterval] = [60, 90, 120, 180, 300]
 
@@ -23,7 +24,12 @@ struct RestTimerView: View {
     private func banner(remaining: TimeInterval) -> some View {
         HStack(spacing: 16) {
             Image(systemName: "timer")
-                .foregroundStyle(.secondary)
+                .foregroundStyle(remaining < 10 ? Color.orange : Color.secondary)
+                .scaleEffect(isPulsing ? 1.2 : 1.0)
+                .animation(
+                    .easeInOut(duration: 0.6).repeatForever(autoreverses: true),
+                    value: isPulsing
+                )
 
             Text(timeString(remaining))
                 .font(.title3.monospacedDigit().weight(.semibold))
@@ -62,6 +68,8 @@ struct RestTimerView: View {
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 14))
         .shadow(radius: 8)
+        .onAppear { isPulsing = true }
+        .onDisappear { isPulsing = false }
     }
 
     private func timeString(_ interval: TimeInterval) -> String {

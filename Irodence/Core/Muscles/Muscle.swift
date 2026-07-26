@@ -19,29 +19,29 @@ enum Muscle: String, CaseIterable, Codable, Hashable {
 
     var displayName: String {
         switch self {
-        case .chest: return "胸"
-        case .obliques: return "腹斜肌"
-        case .abs: return "腹直肌"
-        case .biceps: return "肱二头肌"
-        case .triceps: return "肱三头肌"
-        case .neck: return "颈"
-        case .trapezius: return "斜方肌"
-        case .deltoids: return "三角肌"
-        case .adductors: return "内收肌"
-        case .quadriceps: return "股四头肌"
-        case .knees: return "膝"
-        case .tibialis: return "胫骨前肌"
-        case .calves: return "小腿"
-        case .forearm: return "前臂"
-        case .hands: return "手"
-        case .ankles: return "踝"
-        case .feet: return "足"
-        case .head: return "头"
-        case .hair: return "头发"
-        case .upperBack: return "上背"
-        case .lowerBack: return "下背"
-        case .gluteal: return "臀"
-        case .hamstring: return "腘绳肌"
+        case .chest: return L10n.t("胸", "Chest")
+        case .obliques: return L10n.t("腹斜肌", "Obliques")
+        case .abs: return L10n.t("腹直肌", "Abs")
+        case .biceps: return L10n.t("肱二头肌", "Biceps")
+        case .triceps: return L10n.t("肱三头肌", "Triceps")
+        case .neck: return L10n.t("颈", "Neck")
+        case .trapezius: return L10n.t("斜方肌", "Traps")
+        case .deltoids: return L10n.t("三角肌", "Delts")
+        case .adductors: return L10n.t("内收肌", "Adductors")
+        case .quadriceps: return L10n.t("股四头肌", "Quads")
+        case .knees: return L10n.t("膝", "Knees")
+        case .tibialis: return L10n.t("胫骨前肌", "Tibialis")
+        case .calves: return L10n.t("小腿", "Calves")
+        case .forearm: return L10n.t("前臂", "Forearms")
+        case .hands: return L10n.t("手", "Hands")
+        case .ankles: return L10n.t("踝", "Ankles")
+        case .feet: return L10n.t("足", "Feet")
+        case .head: return L10n.t("头", "Head")
+        case .hair: return L10n.t("头发", "Hair")
+        case .upperBack: return L10n.t("上背", "Upper Back")
+        case .lowerBack: return L10n.t("下背", "Lower Back")
+        case .gluteal: return L10n.t("臀", "Glutes")
+        case .hamstring: return L10n.t("腘绳肌", "Hamstrings")
         }
     }
 }

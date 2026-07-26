@@ -4,7 +4,11 @@
       "Bash(xcodebuild -version)",
       "Bash(swift --version)",
       "Bash(git config *)",
-      "Bash(gh auth *)"
+      "Bash(gh auth *)",
+      "Bash(git -C /Users/andalu/hevykimi diff HEAD)",
+      "Read(//tmp/**)",
+      "Bash(git remote *)",
+      "Bash(git push *)"
     ]
   }
 }

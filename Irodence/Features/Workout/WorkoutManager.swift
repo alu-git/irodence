@@ -15,17 +15,55 @@ final class WorkoutManager: ObservableObject {
         var dbID: UUID?
         var weight = ""
         var reps = ""
+        /// Duration in seconds as typed (duration-mode sets only).
+        var duration = ""
         var rpe = ""
         var isWarmup = false
         var isCompleted = false
+        /// Non-nil while the per-set stopwatch is running (duration mode).
+        var timerStartedAt: Date?
+        /// Set when the background write-through failed (offline/slow
+        /// network); the row shows a retry affordance.
+        var syncFailed = false
         // Previous-session placeholder values ("上次" column)
         var prevWeight: Double?
         var prevReps: Int?
+        var prevDuration: Int?
 
         var parsedWeight: Double? { Double(weight.replacingOccurrences(of: ",", with: ".")) }
         var parsedReps: Int? { Int(reps) }
         var parsedRPE: Double? { rpe.isEmpty ? nil : Double(rpe) }
-        var isValid: Bool { parsedWeight != nil && parsedReps != nil && (parsedWeight ?? -1) >= 0 && (parsedReps ?? 0) > 0 }
+        /// Accepts plain seconds ("90") or mm:ss ("1:30").
+        var parsedDuration: Int? { Self.parseDuration(duration) }
+
+        static func parseDuration(_ text: String) -> Int? {
+            let trimmed = text.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { return nil }
+            if let seconds = Int(trimmed) { return seconds > 0 ? seconds : nil }
+            let parts = trimmed.split(separator: ":")
+            guard parts.count == 2,
+                  let minutes = Int(parts[0]), let seconds = Int(parts[1]),
+                  minutes >= 0, seconds >= 0, seconds < 60 else { return nil }
+            let total = minutes * 60 + seconds
+            return total > 0 ? total : nil
+        }
+
+        /// 90 -> "1:30", 45 -> "0:45"
+        static func formatDuration(_ seconds: Int) -> String {
+            String(format: "%d:%02d", seconds / 60, seconds % 60)
+        }
+
+        func isValid(for mode: TrackingMode) -> Bool {
+            switch mode {
+            case .weighted:
+                return parsedWeight != nil && parsedReps != nil
+                    && (parsedWeight ?? -1) >= 0 && (parsedReps ?? 0) > 0
+            case .bodyweight:
+                return (parsedReps ?? 0) > 0
+            case .duration:
+                return parsedDuration != nil
+            }
+        }
     }
 
     struct ActiveExercise: Identifiable, Equatable {
@@ -50,7 +88,12 @@ final class WorkoutManager: ObservableObject {
     @Published var exercises: [ActiveExercise] = []
     @Published private(set) var startedAt: Date?
     @Published var restEndsAt: Date?
-    @Published var restDurationSeconds: TimeInterval = 120
+    /// Default rest between sets; persisted so the profile-page setting and
+    /// the timer's gear menu stay in sync across launches.
+    @Published var restDurationSeconds: TimeInterval {
+        didSet { UserDefaults.standard.set(restDurationSeconds, forKey: Self.restDurationKey) }
+    }
+    static let restDurationKey = "restDurationSeconds"
     @Published private(set) var summary: Summary?
 
     /// Clears the shown post-workout summary (called on sheet dismissal).
@@ -65,6 +108,8 @@ final class WorkoutManager: ObservableObject {
 
     init(userID: UUID) {
         self.userID = userID
+        let saved = UserDefaults.standard.double(forKey: Self.restDurationKey)
+        restDurationSeconds = saved > 0 ? saved : 120
     }
 
     var isActive: Bool { workoutID != nil }
@@ -85,6 +130,21 @@ final class WorkoutManager: ObservableObject {
         await start(name: template.name, exercises: resolved)
     }
 
+    /// Starts a workout from a built-in template, resolving its exercise
+    /// names against the loaded library. Names that don't match (e.g. a
+    /// seed not yet applied) are skipped silently.
+    func startBuiltIn(_ template: BuiltInTemplate, library: ExerciseService) async {
+        let resolved = template.items.compactMap { item -> (Exercise, Int?)? in
+            guard let ex = library.exercises.first(where: { $0.nameEn == item.nameEn }) else { return nil }
+            return (ex, item.supersetGroup)
+        }
+        guard !resolved.isEmpty else {
+            errorMessage = "模板动作尚未同步，请下拉刷新动作库"
+            return
+        }
+        await start(name: template.name, exercises: resolved)
+    }
+
     private func start(name: String, exercises: [(Exercise, Int?)]) async {
         errorMessage = nil
         do {
@@ -94,12 +154,52 @@ final class WorkoutManager: ObservableObject {
             startedAt = workout.startedAt
             summary = nil
             self.exercises = []
-            for (index, item) in exercises.enumerated() {
-                await addExercise(item.0, supersetGroup: item.1, orderIndex: index)
-                // Templates start with 3 empty sets per exercise
-                if let last = self.exercises.indices.last {
-                    for _ in 0..<3 { addSet(to: last) }
+
+            // Insert every exercise + fetch its previous-session sets in
+            // PARALLEL — sequentially this is 2 round trips per exercise,
+            // which dominates template start time on high-latency networks.
+            // A failed exercise is dropped rather than aborting the start.
+            typealias Prepared = (index: Int, row: WorkoutExercise?, previous: [WorkoutSet])
+            let prepared: [Prepared] = await withTaskGroup(of: Prepared.self) { group in
+                for (index, item) in exercises.enumerated() {
+                    group.addTask { [service] in
+                        do {
+                            let row = try await service.addExercise(
+                                workoutID: workout.id, exerciseID: item.0.id,
+                                orderIndex: index, supersetGroup: item.1
+                            )
+                            let previous = (try? await service.fetchPreviousSets(exerciseID: item.0.id)) ?? []
+                            return (index, row, previous)
+                        } catch {
+                            return (index, nil, [])
+                        }
+                    }
                 }
+                var results: [Prepared] = []
+                for await result in group { results.append(result) }
+                return results
+            }
+
+            self.exercises = prepared
+                .sorted { $0.index < $1.index }
+                .compactMap { index, row, previous in
+                    guard let row else { return nil }
+                    let mode = exercises[index].0.trackingMode
+                    // Templates start with 3 empty sets per exercise,
+                    // each with its same-index previous set as placeholder
+                    let sets = (0..<3).map { setIndex in
+                        makeSet(previous: previous.count > setIndex ? previous[setIndex] : nil,
+                                mode: mode)
+                    }
+                    return ActiveExercise(
+                        dbID: row.id, exercise: exercises[index].0,
+                        supersetGroup: exercises[index].1,
+                        sets: sets, previousSets: previous
+                    )
+                }
+
+            if self.exercises.count < exercises.count {
+                errorMessage = "部分动作添加失败，请检查网络"
             }
         } catch {
             errorMessage = "开始训练失败，请检查网络"
@@ -136,7 +236,7 @@ final class WorkoutManager: ObservableObject {
             exercises.append(ActiveExercise(
                 dbID: row.id, exercise: exercise,
                 supersetGroup: supersetGroup,
-                sets: [makeSet(previous: previous.first)],
+                sets: [makeSet(previous: previous.first, mode: exercise.trackingMode)],
                 previousSets: previous
             ))
         } catch {
@@ -177,22 +277,53 @@ final class WorkoutManager: ObservableObject {
 
     // MARK: - Sets
 
-    private func makeSet(previous: WorkoutSet?) -> ActiveSet {
+    /// New set, Hevy-style autofilled with the same-index set from the last
+    /// session: values land in the text fields as editable values (also kept
+    /// as prev* placeholders for the "上次" column), so the user can just tap
+    /// ✓ when repeating a set. Only the fields the tracking mode uses are
+    /// filled — bodyweight gets reps, duration gets seconds.
+    private func makeSet(previous: WorkoutSet?, mode: TrackingMode) -> ActiveSet {
         var set = ActiveSet()
         set.prevWeight = previous?.weightKg
         set.prevReps = previous?.reps
+        set.prevDuration = previous?.durationSeconds
+        switch mode {
+        case .weighted:
+            if let weight = previous?.weightKg {
+                set.weight = Self.formatKg(weight)
+            }
+            if let reps = previous?.reps {
+                set.reps = String(reps)
+            }
+        case .bodyweight:
+            if let reps = previous?.reps {
+                set.reps = String(reps)
+            }
+        case .duration:
+            if let seconds = previous?.durationSeconds {
+                set.duration = ActiveSet.formatDuration(seconds)
+            }
+        }
         return set
+    }
+
+    /// 60.0 -> "60", 22.5 -> "22.5" (no trailing ".0" in the text field).
+    static func formatKg(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(Int(value))
+            : String(format: "%.1f", value)
     }
 
     func addSet(to exerciseIndex: Int) {
         guard exercises.indices.contains(exerciseIndex) else { return }
         let ex = exercises[exerciseIndex]
-        // Placeholder: same-index set from last session, else copy current last set
+        // Autofill: same-index set from last session, else copy current last set
         let prev = ex.previousSets.count > ex.sets.count ? ex.previousSets[ex.sets.count] : nil
-        var set = makeSet(previous: prev)
+        var set = makeSet(previous: prev, mode: ex.exercise.trackingMode)
         if prev == nil, let last = ex.sets.last {
             set.weight = last.weight
             set.reps = last.reps
+            set.duration = last.duration
         }
         exercises[exerciseIndex].sets.append(set)
     }
@@ -208,33 +339,91 @@ final class WorkoutManager: ObservableObject {
         }
     }
 
-    /// Marks a set done and writes it through. Starts the rest timer.
-    func completeSet(exerciseIndex: Int, setID: UUID) async {
+    /// Marks a set done INSTANTLY (checkmark + rest timer), then writes it
+    /// through in the background. A failed write flags the set for retry
+    /// instead of blocking the UI.
+    func completeSet(exerciseIndex: Int, setID: UUID) {
+        guard exercises.indices.contains(exerciseIndex),
+              let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID })
+        else { return }
+        let mode = exercises[exerciseIndex].exercise.trackingMode
+        var set = exercises[exerciseIndex].sets[setIndex]
+
+        // Completing with the stopwatch still running stops it and logs
+        // the elapsed time as the set's duration.
+        if mode == .duration, let timerStart = set.timerStartedAt {
+            set.duration = ActiveSet.formatDuration(max(1, Int(Date().timeIntervalSince(timerStart))))
+            set.timerStartedAt = nil
+        }
+
+        guard set.isValid(for: mode) else {
+            switch mode {
+            case .weighted: errorMessage = "请填写有效的重量和次数"
+            case .bodyweight: errorMessage = "请填写有效的次数"
+            case .duration: errorMessage = "请填写有效的时长（秒或 分:秒）"
+            }
+            return
+        }
+        guard let exerciseDBID = exercises[exerciseIndex].dbID else { return }
+
+        set.isCompleted = true
+        set.syncFailed = false
+        exercises[exerciseIndex].sets[setIndex] = set
+        restEndsAt = Date().addingTimeInterval(restDurationSeconds)
+
+        Task { await persistSet(exerciseDBID: exerciseDBID, setID: setID) }
+    }
+
+    /// Starts/stops the per-set stopwatch (duration-mode exercises: planks,
+    /// cardio). Stopping writes the elapsed time into the duration field.
+    func toggleSetTimer(exerciseIndex: Int, setID: UUID) {
         guard exercises.indices.contains(exerciseIndex),
               let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID })
         else { return }
         var set = exercises[exerciseIndex].sets[setIndex]
-        guard set.isValid, let weight = set.parsedWeight, let reps = set.parsedReps else {
-            errorMessage = "请填写有效的重量和次数"
-            return
+        if let started = set.timerStartedAt {
+            set.duration = ActiveSet.formatDuration(max(1, Int(Date().timeIntervalSince(started))))
+            set.timerStartedAt = nil
+        } else {
+            set.timerStartedAt = Date()
         }
-        guard let exerciseDBID = exercises[exerciseIndex].dbID else { return }
+        exercises[exerciseIndex].sets[setIndex] = set
+    }
+
+    /// Retries the background write for a set flagged as failed.
+    func retrySetSync(exerciseIndex: Int, setID: UUID) async {
+        guard exercises.indices.contains(exerciseIndex),
+              let exerciseDBID = exercises[exerciseIndex].dbID,
+              let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID })
+        else { return }
+        exercises[exerciseIndex].sets[setIndex].syncFailed = false
+        await persistSet(exerciseDBID: exerciseDBID, setID: setID)
+    }
+
+    /// Background write-through for one completed set. Re-looks-up indices
+    /// by ID since the arrays may have shifted since the tap.
+    private func persistSet(exerciseDBID: UUID, setID: UUID) async {
+        guard let exerciseIndex = exercises.firstIndex(where: { $0.dbID == exerciseDBID }),
+              let setIndex = exercises[exerciseIndex].sets.firstIndex(where: { $0.id == setID })
+        else { return }
+        let mode = exercises[exerciseIndex].exercise.trackingMode
+        let set = exercises[exerciseIndex].sets[setIndex]
+        guard set.isValid(for: mode) else { return }
 
         do {
             let row = try await service.addSet(.init(
                 workout_exercise_id: exerciseDBID,
                 set_index: setIndex,
-                weight_kg: weight,
-                reps: reps,
+                weight_kg: mode.usesWeight ? (set.parsedWeight ?? 0) : 0,
+                reps: mode.usesReps ? set.parsedReps : nil,
+                duration_seconds: mode == .duration ? set.parsedDuration : nil,
                 rpe: set.parsedRPE,
                 is_warmup: set.isWarmup
             ))
-            set.dbID = row.id
-            set.isCompleted = true
-            exercises[exerciseIndex].sets[setIndex] = set
-            restEndsAt = Date().addingTimeInterval(restDurationSeconds)
+            exercises[exerciseIndex].sets[setIndex].dbID = row.id
+            exercises[exerciseIndex].sets[setIndex].syncFailed = false
         } catch {
-            errorMessage = "保存组失败"
+            exercises[exerciseIndex].sets[setIndex].syncFailed = true
         }
     }
 
@@ -244,11 +433,14 @@ final class WorkoutManager: ObservableObject {
         else { return }
         exercises[exerciseIndex].sets[setIndex].isWarmup.toggle()
         // Warmup flag changes persist only for completed sets
+        let mode = exercises[exerciseIndex].exercise.trackingMode
         let set = exercises[exerciseIndex].sets[setIndex]
-        if set.isCompleted, let dbID = set.dbID,
-           let weight = set.parsedWeight, let reps = set.parsedReps {
+        if set.isCompleted, let dbID = set.dbID, set.isValid(for: mode) {
             try? await service.updateSet(dbID, .init(
-                weight_kg: weight, reps: reps, rpe: set.parsedRPE, is_warmup: set.isWarmup
+                weight_kg: mode.usesWeight ? (set.parsedWeight ?? 0) : 0,
+                reps: mode.usesReps ? set.parsedReps : nil,
+                duration_seconds: mode == .duration ? set.parsedDuration : nil,
+                rpe: set.parsedRPE, is_warmup: set.isWarmup
             ))
         }
     }
@@ -304,7 +496,9 @@ final class WorkoutManager: ObservableObject {
         var results: [PRResult] = []
 
         for ex in exercises {
-            let workingSets = ex.sets.filter { $0.isCompleted && !$0.isWarmup && $0.isValid }
+            // 1RM-based PRs only make sense for weighted sets
+            guard ex.exercise.trackingMode == .weighted else { continue }
+            let workingSets = ex.sets.filter { $0.isCompleted && !$0.isWarmup && $0.isValid(for: .weighted) }
             guard let best = workingSets.max(by: {
                 ($0.parsedWeight ?? 0) * (1 + Double($0.parsedReps ?? 0) / 30)
                     < ($1.parsedWeight ?? 0) * (1 + Double($1.parsedReps ?? 0) / 30)

@@ -5,14 +5,19 @@ import AuthenticationServices
 /// Sign in with Apple is required by WeChat/Apple review as a fallback.
 struct LoginView: View {
     @EnvironmentObject private var authService: AuthService
+    #if DEBUG
+    @State private var showOnboardingPreview = false
+    #endif
 
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            VStack(spacing: 8) {
-                Text("Irodence 铁证")
-                    .font(.system(size: 36, weight: .bold))
+            VStack(spacing: 16) {
+                Image("AppLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 120, height: 120)
                 Text("记录训练 · 冲击排行榜")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -55,6 +60,23 @@ struct LoginView: View {
                         .foregroundStyle(.secondary)
                 }
                 .padding(.top, 4)
+
+                // Dev-only mock: walk through first-run onboarding without
+                // creating a new account. Uses a throwaway ProfileService with
+                // a random user ID — the profile UPDATE matches no row, so
+                // 完成 "succeeds" silently and the cover dismisses.
+                Button {
+                    showOnboardingPreview = true
+                } label: {
+                    Label("预览新手引导", systemImage: "sparkles")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .fullScreenCover(isPresented: $showOnboardingPreview) {
+                    OnboardingPreviewContainer {
+                        showOnboardingPreview = false
+                    }
+                }
                 #endif
 
                 if let error = authService.errorMessage {
@@ -71,6 +93,20 @@ struct LoginView: View {
         }
     }
 }
+
+#if DEBUG
+/// Owns the throwaway ProfileService as a StateObject so it survives parent
+/// re-renders (constructing it inline in the cover closure would reset the
+/// onboarding state on every authService publish).
+private struct OnboardingPreviewContainer: View {
+    @StateObject private var service = ProfileService(userID: UUID())
+    let onFinished: () -> Void
+
+    var body: some View {
+        OnboardingView(service: service, onFinished: onFinished)
+    }
+}
+#endif
 
 #Preview {
     LoginView()

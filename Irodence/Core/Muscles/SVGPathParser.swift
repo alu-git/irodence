@@ -6,7 +6,30 @@ import SwiftUI
 /// Arc conversion follows SVG spec F.6.5 (endpoint -> center parameterization).
 enum SVGPathParser {
 
+    /// Parsed paths are pure functions of the input string, but SwiftUI
+    /// re-evaluates view bodies constantly — and a social feed renders
+    /// dozens of muscle diagrams at once. Memoize (NSCache is thread-safe
+    /// and evicts under memory pressure).
+    private static let cache: NSCache<NSString, CachedPath> = {
+        let c = NSCache<NSString, CachedPath>()
+        c.countLimit = 400
+        return c
+    }()
+
+    private final class CachedPath {
+        let path: Path
+        init(_ path: Path) { self.path = path }
+    }
+
     static func parse(_ d: String) -> Path {
+        let key = d as NSString
+        if let hit = cache.object(forKey: key) { return hit.path }
+        let path = parseUncached(d)
+        cache.setObject(CachedPath(path), forKey: key)
+        return path
+    }
+
+    private static func parseUncached(_ d: String) -> Path {
         var scanner = Scanner(string: d)
         var path = Path()
         var current = CGPoint.zero
@@ -73,6 +96,8 @@ enum SVGPathParser {
                     path.addCurve(to: end, control1: c1, control2: c2)
                     lastCubicControl = c2
                     current = end
+                    // Implicit repeats of S reflect the previous control too
+                    lastCommand = upper
                 }
 
             case "Q":
@@ -94,6 +119,8 @@ enum SVGPathParser {
                     path.addQuadCurve(to: end, control: ctrl)
                     lastQuadControl = ctrl
                     current = end
+                    // Implicit repeats of T reflect the previous control too
+                    lastCommand = upper
                 }
 
             case "A":
@@ -225,16 +252,25 @@ private struct Scanner {
     }
 
     /// Returns nil when the next token is a command letter or the end.
+    /// A number is [sign] digits [. digits] [e[sign]digits] — a second dot
+    /// or a bare "e" terminates the token (SVG allows ".62.61" = 0.62, 0.61).
     mutating func number() -> CGFloat? {
         skipSeparators()
         guard !isAtEnd, !chars[index].isLetter else { return nil }
         let start = index
         if chars[index] == "-" || chars[index] == "+" { index += 1 }
+        var seenDot = false
+        var seenDigit = false
         while !isAtEnd {
             let c = chars[index]
-            if c.isNumber || c == "." {
+            if c.isNumber {
+                seenDigit = true
                 index += 1
-            } else if (c == "e" || c == "E"), index + 1 < chars.count {
+            } else if c == "." && !seenDot {
+                seenDot = true
+                index += 1
+            } else if (c == "e" || c == "E") && seenDigit, index + 1 < chars.count,
+                      chars[index + 1].isNumber || chars[index + 1] == "-" || chars[index + 1] == "+" {
                 index += 1
                 if chars[index] == "-" || chars[index] == "+" { index += 1 }
             } else {
@@ -245,6 +281,15 @@ private struct Scanner {
         return CGFloat(Double(String(chars[start..<index])) ?? 0)
     }
 
+    /// Arc flags are exactly one character ("0" or "1") and may be packed
+    /// against neighboring numbers with no separator ("01" = false, true).
+    mutating func flag() -> Bool? {
+        skipSeparators()
+        guard !isAtEnd, chars[index] == "0" || chars[index] == "1" else { return nil }
+        defer { index += 1 }
+        return chars[index] == "1"
+    }
+
     mutating func point(relative origin: CGPoint?) -> CGPoint? {
         guard let x = number(), let y = number() else { return nil }
         return CGPoint(x: x + (origin?.x ?? 0), y: y + (origin?.y ?? 0))
@@ -252,9 +297,9 @@ private struct Scanner {
 
     mutating func arcParams(relative origin: CGPoint?) -> SVGPathParser.ArcParams? {
         guard let rx = number(), let ry = number(), let rot = number(),
-              let large = number(), let sweep = number(),
+              let large = flag(), let sweep = flag(),
               let end = point(relative: origin) else { return nil }
         return .init(rx: rx, ry: ry, xAxisRotation: rot,
-                     largeArc: large != 0, sweep: sweep != 0, end: end)
+                     largeArc: large, sweep: sweep, end: end)
     }
 }

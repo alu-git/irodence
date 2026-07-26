@@ -12,25 +12,29 @@ struct ExercisePickerView: View {
 
     var body: some View {
         NavigationStack {
-            List(filtered) { exercise in
-                Button {
-                    toggle(exercise.id)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(exercise.nameZh).font(.headline)
-                            Text("\(exercise.primaryMuscle.displayName) · \(exercise.equipment.displayName)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+            Group {
+                if query.isEmpty {
+                    // Grouped by muscle group, like the library tab
+                    List {
+                        ForEach(library.grouped, id: \.muscle) { group in
+                            Section(group.muscle.displayName) {
+                                ForEach(group.exercises) { exercise in
+                                    PickerRow(exercise: exercise,
+                                              isSelected: selected.contains(exercise.id)) {
+                                        toggle(exercise.id)
+                                    }
+                                }
+                            }
                         }
-                        Spacer()
-                        if selected.contains(exercise.id) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color.accentColor)
+                    }
+                } else {
+                    List(filtered) { exercise in
+                        PickerRow(exercise: exercise,
+                                  isSelected: selected.contains(exercise.id)) {
+                            toggle(exercise.id)
                         }
                     }
                 }
-                .tint(.primary)
             }
             .navigationTitle("添加动作")
             .navigationBarTitleDisplayMode(.inline)
@@ -62,5 +66,31 @@ struct ExercisePickerView: View {
         } else {
             selected.insert(id)
         }
+    }
+}
+
+/// One selectable exercise row in the picker.
+private struct PickerRow: View {
+    let exercise: Exercise
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.displayName).font(.headline)
+                    Text("\(exercise.primaryMuscle.displayName) · \(exercise.equipment.displayName)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+        .tint(.primary)
     }
 }
