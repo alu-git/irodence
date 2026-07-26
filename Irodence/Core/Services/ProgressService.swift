@@ -68,6 +68,12 @@ final class ProgressService: ObservableObject {
 
     func loadBodyweightLogs() async {
         guard let userID else { return }
+        let key = "bodyweight_\(userID.uuidString)"
+        // Show the last snapshot instantly, then refresh silently.
+        if bodyweightLogs.isEmpty,
+           let cached: [BodyweightLog] = DiskCache.load([BodyweightLog].self, key: key) {
+            bodyweightLogs = cached
+        }
         do {
             bodyweightLogs = try await client
                 .from("bodyweight_logs")
@@ -76,8 +82,11 @@ final class ProgressService: ObservableObject {
                 .order("logged_at", ascending: true)
                 .execute()
                 .value
+            DiskCache.save(bodyweightLogs, key: key)
         } catch {
-            errorMessage = "体重记录加载失败"
+            if bodyweightLogs.isEmpty {
+                errorMessage = "体重记录加载失败"
+            }
         }
     }
 
