@@ -22,3 +22,22 @@ struct StrengthHistoryPoint: Identifiable, Hashable {
     let date: Date
     let estimated1RM: Double
 }
+
+/// Row in `public.progress_photos`. The image itself lives in the private
+/// `progress-photos` storage bucket at `storagePath`; clients view it via a
+/// time-limited signed URL.
+struct ProgressPhoto: Identifiable, Codable, Hashable {
+    let id: UUID
+    let userID: UUID
+    let storagePath: String
+    let note: String?
+    let takenAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userID = "user_id"
+        case storagePath = "storage_path"
+        case note
+        case takenAt = "taken_at"
+    }
+}
