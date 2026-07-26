@@ -97,6 +97,22 @@ from auth.users u
 where u.email like 'mock-%@irodence.app' or u.email = 'dev-test@irodence.app'
 on conflict do nothing;
 
+-- 2d. Backfill columns GoTrue v2.193+ scans as non-NULL at sign-in. Raw
+--     inserts leave them NULL (GoTrue's own signup writes ''), which makes
+--     password sign-in 500 with "Database error querying schema".
+update auth.users
+set confirmation_token         = coalesce(confirmation_token, ''),
+    recovery_token             = coalesce(recovery_token, ''),
+    reauthentication_token     = coalesce(reauthentication_token, ''),
+    email_change               = coalesce(email_change, ''),
+    email_change_token_new     = coalesce(email_change_token_new, ''),
+    email_change_token_current = coalesce(email_change_token_current, ''),
+    phone_change_token         = coalesce(phone_change_token, ''),
+    phone_change               = coalesce(phone_change, ''),
+    phone                      = coalesce(phone, ''),
+    email_change_confirm_status = coalesce(email_change_confirm_status, 0)
+where email like 'mock-%@irodence.app' or email = 'dev-test@irodence.app';
+
 -- 3. Profile details (sex + bodyweight feed DOTS / leaderboard tiers).
 update public.profiles p
 set sex = v.sex, bodyweight_kg = v.bw, avatar_url = v.avatar
