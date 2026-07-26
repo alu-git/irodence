@@ -6,13 +6,22 @@ import Charts
 struct ProfileView: View {
     @EnvironmentObject private var authService: AuthService
     @EnvironmentObject private var library: ExerciseService
+    @EnvironmentObject private var workoutManager: WorkoutManager
     @StateObject private var service: ProfileService
     @StateObject private var progress = ProgressService()
+    private let userID: UUID
 
     @State private var showBodyweightPrompt = false
     @State private var bodyweightInput = ""
+    @State private var showNamePrompt = false
+    @State private var nameInput = ""
+
+    // Same keys RootView reads — @AppStorage writes propagate live.
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
+    @AppStorage(TextSizePreference.storageKey) private var textSize = TextSizePreference.standard.rawValue
 
     init(userID: UUID) {
+        self.userID = userID
         _service = StateObject(wrappedValue: ProfileService(userID: userID))
     }
 
@@ -22,8 +31,14 @@ struct ProfileView: View {
                 if let profile = service.profile {
                     headerSection(profile)
                     settingsSection(profile)
+                    preferencesSection
                     bodyweightSection
+                    ProgressPhotosSection()
                     tierSection(profile)
+                    legalSection
+                    #if DEBUG
+                    DebugPreviewSection(userID: userID)
+                    #endif
                 } else if service.isLoading {
                     Section { ProgressView() }
                 } else {
@@ -38,16 +53,24 @@ struct ProfileView: View {
                     Button("退出登录", role: .destructive) {
                         Task { await authService.signOut() }
                     }
+                } header: {
+                    Text("账户")
+                } footer: {
+                    Text("Irodence 铁证 · v\(appVersion)")
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.top, 12)
                 }
             }
             .navigationTitle("我的")
             .refreshable {
-                await service.load(library: library)
-                await progress.loadBodyweightLogs()
+                async let a: Void = service.load(library: library)
+                async let b: Void = progress.loadBodyweightLogs()
+                _ = await (a, b)
             }
             .task {
-                await service.load(library: library)
-                await progress.loadBodyweightLogs()
+                async let a: Void = service.load(library: library)
+                async let b: Void = progress.loadBodyweightLogs()
+                _ = await (a, b)
             }
             .alert("记录体重 (kg)", isPresented: $showBodyweightPrompt) {
                 TextField("kg", text: $bodyweightInput)
@@ -62,7 +85,18 @@ struct ProfileView: View {
                 }
                 Button("取消", role: .cancel) {}
             }
+            .alert("修改昵称", isPresented: $showNamePrompt) {
+                TextField("昵称", text: $nameInput)
+                Button("保存") {
+                    Task { await service.updateDisplayName(nameInput) }
+                }
+                Button("取消", role: .cancel) {}
+            }
         }
+    }
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
     // MARK: - Sections
@@ -70,9 +104,14 @@ struct ProfileView: View {
     private func headerSection(_ profile: Profile) -> some View {
         Section {
             HStack(spacing: 12) {
-                Image(systemName: "person.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.secondary)
+                ZStack {
+                    Circle()
+                        .fill(Color.accentColor.opacity(0.15))
+                    Text(String(profile.displayName.prefix(1)))
+                        .font(.title3.bold())
+                        .foregroundStyle(Color.accentColor)
+                }
+                .frame(width: 52, height: 52)
                 VStack(alignment: .leading) {
                     Text(profile.displayName).font(.title3.bold())
                     if let sex = profile.sex, let bw = profile.bodyweightKg {
@@ -87,6 +126,19 @@ struct ProfileView: View {
 
     private func settingsSection(_ profile: Profile) -> some View {
         Section("资料") {
+            Button {
+                nameInput = profile.displayName
+                showNamePrompt = true
+            } label: {
+                HStack {
+                    Text("昵称")
+                    Spacer()
+                    Text(profile.displayName)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .tint(.primary)
+
             Picker("性别", selection: sexBinding) {
                 ForEach(Sex.allCases, id: \.self) { Text($0.displayName).tag($0) }
             }
@@ -105,6 +157,35 @@ struct ProfileView: View {
             }
             .tint(.primary)
         }
+    }
+
+    /// Writes through to the shared WorkoutManager so the change is live
+    /// immediately; its didSet persists to UserDefaults for next launch.
+    private var preferencesSection: some View {
+        Section("设置") {
+            Picker("语言", selection: $language) {
+                ForEach(AppLanguage.allCases, id: \.self) {
+                    Text($0.displayName).tag($0.rawValue)
+                }
+            }
+
+            Picker("字体大小", selection: $textSize) {
+                ForEach(TextSizePreference.allCases, id: \.self) {
+                    Text($0.displayName).tag($0.rawValue)
+                }
+            }
+
+            Picker("默认休息时长", selection: $workoutManager.restDurationSeconds) {
+                ForEach([60.0, 90, 120, 180, 300], id: \.self) { seconds in
+                    Text(restLabel(seconds)).tag(seconds)
+                }
+            }
+        }
+    }
+
+    private func restLabel(_ seconds: Double) -> String {
+        let total = Int(seconds)
+        return String(format: "%d:%02d", total / 60, total % 60)
     }
 
     private var sexBinding: Binding<Sex> {
@@ -194,11 +275,27 @@ struct ProfileView: View {
         return lo...hi
     }
 
+    /// App Store requires an accessible privacy policy; these open the
+    /// GitHub Pages-hosted copies in Safari.
+    private var legalSection: some View {
+        Section("法律与隐私") {
+            Link("隐私政策", destination: LegalURLs.privacyPolicy)
+            Link("服务条款", destination: LegalURLs.termsOfService)
+        }
+    }
+
     private func formatKg(_ value: Double) -> String {
         value.truncatingRemainder(dividingBy: 1) == 0
             ? String(Int(value))
             : String(format: "%.1f", value)
     }
+}
+
+/// URLs of the hosted legal documents (GitHub Pages, `irodence-legal` repo,
+/// content from docs/legal/ in this repo). Force-unwrapped: literals.
+enum LegalURLs {
+    static let privacyPolicy = URL(string: "https://andalu0906.github.io/irodence-legal/privacy-policy.html")!
+    static let termsOfService = URL(string: "https://andalu0906.github.io/irodence-legal/terms-of-service.html")!
 }
 
 /// One core lift: DOTS score, tier badge, progress to next tier.
