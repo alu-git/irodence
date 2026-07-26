@@ -1,0 +1,671 @@
+{
+  "sourceLanguage" : "zh-Hans",
+  "strings" : {
+    "%@ · %lld 个动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%@ · %lld exercises" } }
+      }
+    },
+    "%lld 个动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld exercises" } }
+      }
+    },
+    "%lld 组" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld sets" } }
+      }
+    },
+    "DOTS" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DOTS" } }
+      }
+    },
+    "上传中…" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Uploading…" } }
+      }
+    },
+    "下拉重试" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pull to retry" } }
+      }
+    },
+    "与上一动作组成超级组" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Superset with previous" } }
+      }
+    },
+    "主要" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Primary" } }
+      }
+    },
+    "主要肌群" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Primary Muscle" } }
+      }
+    },
+    "上肢日" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Upper Day" } }
+      }
+    },
+    "上次" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Last" } }
+      }
+    },
+    "未完成" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not set" } }
+      }
+    },
+    "本周还没有训练记录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No workouts this week" } }
+      }
+    },
+    "保存" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save" } }
+      }
+    },
+    "保存为模板" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save as Template" } }
+      }
+    },
+    "修改昵称" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edit Name" } }
+      }
+    },
+    "全球" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Global" } }
+      }
+    },
+    "关闭" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } }
+      }
+    },
+    "取消" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } }
+      }
+    },
+    "取消超级组" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Remove superset" } }
+      }
+    },
+    "即将上线" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Coming soon" } }
+      }
+    },
+    "好友" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Friends" } }
+      }
+    },
+    "好友里还没有人上榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No friends on the board yet" } }
+      }
+    },
+    "字体大小" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Text Size" } }
+      }
+    },
+    "完成" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } }
+      }
+    },
+    "完成一次训练后解锁" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish a workout to unlock" } }
+      }
+    },
+    "完成一次训练即可上榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish a workout to rank" } }
+      }
+    },
+    "完成并保存" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish & Save" } }
+      }
+    },
+    "完成训练并刷新纪录即可上榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish workouts and set PRs to rank" } }
+      }
+    },
+    "完成训练？" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Finish workout?" } }
+      }
+    },
+    "完成组数" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sets" } }
+      }
+    },
+    "孤立动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Isolation" } }
+      }
+    },
+    "删除" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } }
+      }
+    },
+    "前" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Front" } }
+      }
+    },
+    "后" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back" } }
+      }
+    },
+    "力量榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Strength" } }
+      }
+    },
+    "力量等级" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Strength Levels" } }
+      }
+    },
+    "动作库" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Exercises" } }
+      }
+    },
+    "动作要领" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Instructions" } }
+      }
+    },
+    "协同" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Secondary" } }
+      }
+    },
+    "记录体型变化，和力量数据一起见证进步" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Track your physique alongside your lifts" } }
+      }
+    },
+    "记录体重 (kg)" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log Bodyweight (kg)" } }
+      }
+    },
+    "记录今日体重" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log today's weight" } }
+      }
+    },
+    "记录训练 · 冲击排行榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log lifts · climb the ranks" } }
+      }
+    },
+    "还没有人上榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No entries yet" } }
+      }
+    },
+    "还没有动态" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No activity yet" } }
+      }
+    },
+    "还没有模板。完成一次训练后可以保存为模板。" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No templates yet. Finish a workout to save it as one." } }
+      }
+    },
+    "没有找到「%@」" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No results for “%@”" } }
+      }
+    },
+    "添加 (%lld)" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add (%lld)" } }
+      }
+    },
+    "添加好友" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Friends" } }
+      }
+    },
+    "添加动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Exercise" } }
+      }
+    },
+    "添加照片" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Photo" } }
+      }
+    },
+    "添加组" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add Set" } }
+      }
+    },
+    "测试进入" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dev Sign-In" } }
+      }
+    },
+    "搜索动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search exercises" } }
+      }
+    },
+    "搜索动作（中/英文）" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search (EN/中文)" } }
+      }
+    },
+    "搜索好友" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Find friends" } }
+      }
+    },
+    "搜索昵称" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search by name" } }
+      }
+    },
+    "放弃并删除" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Discard & Delete" } }
+      }
+    },
+    "放弃本次训练？" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Discard this workout?" } }
+      }
+    },
+    "放弃训练" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Discard Workout" } }
+      }
+    },
+    "新纪录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New PRs" } }
+      }
+    },
+    "方向" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Side" } }
+      }
+    },
+    "时长" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Duration" } }
+      }
+    },
+    "已达到最高等级" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Max level reached" } }
+      }
+    },
+    "已达最高等级" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Max level reached" } }
+      }
+    },
+    "已关注" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Following" } }
+      }
+    },
+    "已记录的数据将被删除" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Logged data will be deleted" } }
+      }
+    },
+    "开始自由训练" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Start Empty Workout" } }
+      }
+    },
+    "换个名字试试" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try another name" } }
+      }
+    },
+    "换个关键词试试" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try another keyword" } }
+      }
+    },
+    "排行榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Leaderboard" } }
+      }
+    },
+    "推荐模板" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Featured" } }
+      }
+    },
+    "至少两次训练记录后显示曲线" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log it twice to see the curve" } }
+      }
+    },
+    "我的" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Profile" } }
+      }
+    },
+    "热身" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "W" } }
+      }
+    },
+    "进步曲线 （估算 1RM)" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Progress (Est. 1RM)" } }
+      }
+    },
+    "进步照片" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Progress Photos" } }
+      }
+    },
+    "模板" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Templates" } }
+      }
+    },
+    "模板名称" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Template Name" } }
+      }
+    },
+    "每周容量榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly Volume" } }
+      }
+    },
+    "周容量榜" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Weekly Volume" } }
+      }
+    },
+    "关注" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow" } }
+      }
+    },
+    "关注好友后，他们的训练会出现在这里" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow friends to see their workouts here" } }
+      }
+    },
+    "移除动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Remove exercise" } }
+      }
+    },
+    "社交" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Social" } }
+      }
+    },
+    "估算 1RM" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Est. 1RM" } }
+      }
+    },
+    "体重" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bodyweight" } }
+      }
+    },
+    "体重记录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bodyweight Log" } }
+      }
+    },
+    "将保存本次训练并计算新纪录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Saves this workout and checks for new PRs" } }
+      }
+    },
+    "训练" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Workout" } }
+      }
+    },
+    "设置" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } }
+      }
+    },
+    "设置性别和体重后，这里会显示你的力量等级" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set sex & bodyweight to see your levels" } }
+      }
+    },
+    "语言" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } }
+      }
+    },
+    "输入昵称查找并关注" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Search a name to follow" } }
+      }
+    },
+    "退出登录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign Out" } }
+      }
+    },
+    "例如：推日" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "e.g. Push Day" } }
+      }
+    },
+    "动态" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Feed" } }
+      }
+    },
+    "范围" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scope" } }
+      }
+    },
+    "超级组 %@" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Superset %@" } }
+      }
+    },
+    "组" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set" } }
+      }
+    },
+    "总容量 (kg)" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Volume (kg)" } }
+      }
+    },
+    "榜单" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Board" } }
+      }
+    },
+    "账户" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Account" } }
+      }
+    },
+    "资料" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Details" } }
+      }
+    },
+    "视图" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "View" } }
+      }
+    },
+    "类型" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Type" } }
+      }
+    },
+    "默认休息时长" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Default Rest" } }
+      }
+    },
+    "昵称" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } }
+      }
+    },
+    "复合" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Compound" } }
+      }
+    },
+    "复合动作" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Compound" } }
+      }
+    },
+    "微信登录" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sign in with WeChat" } }
+      }
+    },
+    "未设置" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not set" } }
+      }
+    },
+    "器械" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Equipment" } }
+      }
+    },
+    "次数" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reps" } }
+      }
+    },
+    "重新加载" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reload" } }
+      }
+    },
+    "性别" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sex" } }
+      }
+    },
+    "欢迎来到铁证" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome to Irodence" } }
+      }
+    },
+    "记录训练，见证变强" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log workouts. Watch yourself get stronger." } }
+      }
+    },
+    "记录训练" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Log Workouts" } }
+      }
+    },
+    "每个动作的组数、重量、容量" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sets, weights, and volume for every exercise" } }
+      }
+    },
+    "DOTS 系数衡量你的真实水平" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DOTS-scored strength standards" } }
+      }
+    },
+    "好友排行" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Leaderboards" } }
+      }
+    },
+    "和朋友一较高下" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Compete with your friends" } }
+      }
+    },
+    "开始" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Get Started" } }
+      }
+    },
+    "怎么称呼你？" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What should we call you?" } }
+      }
+    },
+    "其他用户会看到这个名字" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other users will see this name" } }
+      }
+    },
+    "继续" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } }
+      }
+    },
+    "你的性别" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Sex" } }
+      }
+    },
+    "用于匹配力量等级标准" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Used to match strength standards" } }
+      }
+    },
+    "你的体重" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Your Bodyweight" } }
+      }
+    },
+    "用于 DOTS 系数计算，之后可随时修改" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Feeds the DOTS score — you can change it anytime" } }
+      }
+    },
+    "稍后再填" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skip for now" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

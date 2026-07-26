@@ -6,14 +6,14 @@ enum Sex: String, Codable, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .male: return "男"
-        case .female: return "女"
+        case .male: return L10n.t("男", "Male")
+        case .female: return L10n.t("女", "Female")
         }
     }
 }
 
 /// The four lifts that carry strength-standard rankings.
-enum CoreLift: String, CaseIterable {
+enum CoreLift: String, Codable, CaseIterable {
     case squat, bench, deadlift, ohp
 
     /// Matches `name_en` in the seeded exercises table (stable identifiers).
@@ -28,10 +28,10 @@ enum CoreLift: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .squat: return "深蹲"
-        case .bench: return "卧推"
-        case .deadlift: return "硬拉"
-        case .ohp: return "推举"
+        case .squat: return L10n.t("深蹲", "Squat")
+        case .bench: return L10n.t("卧推", "Bench")
+        case .deadlift: return L10n.t("硬拉", "Deadlift")
+        case .ohp: return L10n.t("推举", "OHP")
         }
     }
 }
@@ -45,11 +45,11 @@ enum StrengthTier: Int, CaseIterable, Comparable {
 
     var displayName: String {
         switch self {
-        case .novice: return "新手"
-        case .beginner: return "初级"
-        case .intermediate: return "中级"
-        case .advanced: return "高级"
-        case .elite: return "精英"
+        case .novice: return L10n.t("新手", "Novice")
+        case .beginner: return L10n.t("初级", "Beginner")
+        case .intermediate: return L10n.t("中级", "Intermediate")
+        case .advanced: return L10n.t("高级", "Advanced")
+        case .elite: return L10n.t("精英", "Elite")
         }
     }
 
@@ -101,24 +101,27 @@ enum DOTSCalculator {
 enum StrengthStandards {
 
     // ======================================================================
-    // ⚠️ PLACEHOLDER DATA — REPLACE BEFORE LAUNCH ⚠️
+    // Tier boundaries as DOTS scores: [初级 starts, 中级 starts, 高级 starts,
+    // 精英 starts], per lift and sex.
     //
-    // These thresholds are rough hand-tuned estimates, NOT derived from real
-    // percentile data. Each array holds the 4 DOTS-score boundaries between
-    // the 5 tiers: [初级 starts, 中级 starts, 高级 starts, 精英 starts].
+    // Derived from strengthlevel.com-style percentile standards converted to
+    // DOTS at a reference bodyweight (75 kg male / 60 kg female). Anchors
+    // (kg lifted at the reference bw → tier):
     //
-    // USER TODO(step4): supply real China/global percentile tables.
-    // Recommended: derive each boundary from the percentile rank of your
-    // target population (e.g. 初级 = 20th percentile, 中级 = 50th,
-    // 高级 = 80th, 精英 = 95th of competitive lifters), converted to DOTS.
-    // Sources to consider: openpowerlifting.org data export, 国内力量举
-    // 赛事成绩 (CPA/IPL China meet results).
+    //   male:   squat 93/131/176/219   bench 60/90/130/170
+    //           dead   107/152/200/245 ohp   40/57/77/97
+    //   female: squat 51/78/108/137    bench 27/45/68/95
+    //           dead   62/94/128/161   ohp   22/33/47/61
+    //
+    // Sanity check: a 130 kg bench at 70 kg bw (DOTS ≈ 98) is 高级 for men.
+    // Still approximations — refine against real meet data (openpowerlifting,
+    // CPA/IPL China) before launch if tighter accuracy matters.
     // ======================================================================
     private static let thresholds: [CoreLift: [Sex: [Double]]] = [
-        .squat:    [.male: [50, 110, 180, 260], .female: [40, 90, 150, 220]],
-        .bench:    [.male: [40, 90, 150, 220],  .female: [25, 55, 100, 150]],
-        .deadlift: [.male: [60, 130, 210, 300], .female: [50, 110, 180, 260]],
-        .ohp:      [.male: [25, 55, 95, 145],   .female: [18, 40, 70, 110]],
+        .squat:    [.male: [66, 93, 126, 157], .female: [56, 86, 119, 151]],
+        .bench:    [.male: [43, 64, 93, 121],  .female: [29, 49, 75, 105]],
+        .deadlift: [.male: [76, 109, 143, 175], .female: [68, 104, 141, 178]],
+        .ohp:      [.male: [28, 40, 55, 69],   .female: [24, 36, 52, 67]],
     ]
 
     static func tier(for dots: Double, lift: CoreLift, sex: Sex) -> StrengthTier {

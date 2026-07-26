@@ -6,23 +6,49 @@ import Charts
 struct ExerciseDetailView: View {
     let exercise: Exercise
     @StateObject private var progress = ProgressService()
+    /// Start empty so the highlights fade in on appear.
+    @State private var primaryHighlighted: Set<Muscle> = []
+    @State private var secondaryHighlighted: Set<Muscle> = []
+
+    private var activation: ExerciseMuscles {
+        ExerciseMuscleMap.muscles(for: exercise)
+    }
 
     var body: some View {
         List {
             Section {
-                LabeledContent("主要肌群", value: exercise.primaryMuscle.displayName)
-                LabeledContent("器械", value: exercise.equipment.displayName)
-                LabeledContent("类型", value: exercise.isCompound ? "复合动作" : "孤立动作")
+                MuscleDiagramPairView(
+                    activated: primaryHighlighted,
+                    secondaryActivated: secondaryHighlighted
+                )
+                    .frame(height: 300)
+                    .frame(maxWidth: .infinity)
+                HStack(spacing: 16) {
+                    Label("主要", systemImage: "circle.fill")
+                        .foregroundStyle(Color.accentColor)
+                    Label("协同", systemImage: "circle.fill")
+                        .foregroundStyle(Color.accentColor.opacity(0.45))
+                }
+                .font(.caption)
+                .frame(maxWidth: .infinity)
+                .listRowSeparator(.hidden)
+            }
+            .listRowBackground(Color.clear)
+
+            Section {
+                LabeledContent(L10n.t("主要肌群", "Primary Muscle"), value: exercise.primaryMuscle.displayName)
+                LabeledContent(L10n.t("器械", "Equipment"), value: exercise.equipment.displayName)
+                LabeledContent(L10n.t("类型", "Type"), value: exercise.isCompound ? L10n.t("复合动作", "Compound") : L10n.t("孤立动作", "Isolation"))
             }
 
             if let instructions = exercise.instructions, !instructions.isEmpty {
-                Section("动作要领") {
+                Section(L10n.t("动作要领", "Instructions")) {
                     Text(instructions)
                         .font(.body)
                 }
             }
 
-            Section("进步曲线 (估算 1RM)") {
+            Section(L10n.t("进步曲线 (估算 1RM)", "Strength Progress (Est. 1RM)")) {
                 if progress.isLoading {
                     ProgressView()
                         .frame(maxWidth: .infinity)
@@ -48,17 +74,25 @@ struct ExerciseDetailView: View {
                 }
             }
         }
-        .navigationTitle(exercise.nameZh)
+        .navigationTitle(exercise.primaryName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
                 VStack(spacing: 0) {
-                    Text(exercise.nameZh).font(.headline)
-                    Text(exercise.nameEn).font(.caption2).foregroundStyle(.secondary)
+                    Text(exercise.primaryName).font(.headline)
+                    Text(exercise.secondaryName).font(.caption2).foregroundStyle(.secondary)
                 }
             }
         }
-        .task { await progress.loadHistory(exerciseID: exercise.id) }
+        .task {
+            await progress.loadHistory(exerciseID: exercise.id)
+        }
+        .onAppear {
+            withAnimation(.easeIn(duration: 0.5).delay(0.15)) {
+                primaryHighlighted = activation.primary
+                secondaryHighlighted = activation.secondary
+            }
+        }
     }
 }
 
@@ -103,7 +137,8 @@ struct StrengthHistoryChart: View {
             primaryMuscle: .chest,
             equipment: .barbell,
             isCompound: true,
-            instructions: "仰卧于卧推凳，握距略宽于肩。"
+            instructionsZh: "仰卧于卧推凳，握距略宽于肩。",
+            instructionsEn: "Lie on a bench, grip slightly wider than shoulders."
         ))
         .preferredColorScheme(.dark)
     }

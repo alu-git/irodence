@@ -4,6 +4,8 @@ import SwiftUI
 struct WorkoutSummaryView: View {
     let summary: WorkoutManager.Summary
     @Environment(\.dismiss) private var dismiss
+    @State private var appeared = false
+    @State private var trophyPulse = false
 
     var body: some View {
         NavigationStack {
@@ -18,17 +20,25 @@ struct WorkoutSummaryView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
+                    .opacity(appeared ? 1 : 0)
+                    .offset(y: appeared ? 0 : 12)
+                    .animation(.easeOut(duration: 0.4), value: appeared)
                 }
                 .listRowBackground(Color.clear)
 
                 if !summary.prs.isEmpty {
                     Section("新纪录") {
-                        ForEach(summary.prs) { pr in
+                        ForEach(Array(summary.prs.enumerated()), id: \.element.id) { index, pr in
                             HStack {
                                 Image(systemName: "trophy.fill")
                                     .foregroundStyle(.yellow)
+                                    .scaleEffect(trophyPulse ? 1.25 : 1.0)
+                                    .animation(
+                                        .easeInOut(duration: 0.7).repeatForever(autoreverses: true),
+                                        value: trophyPulse
+                                    )
                                 VStack(alignment: .leading) {
-                                    Text(pr.exercise.nameZh).font(.headline)
+                                    Text(pr.exercise.primaryName).font(.headline)
                                     Text("\(formatKg(pr.weightKg)) kg × \(pr.reps)")
                                         .font(.subheadline)
                                 }
@@ -41,6 +51,12 @@ struct WorkoutSummaryView: View {
                                         .font(.headline.monospacedDigit())
                                 }
                             }
+                            .opacity(appeared ? 1 : 0)
+                            .offset(y: appeared ? 0 : 12)
+                            .animation(
+                                .easeOut(duration: 0.4).delay(0.15 + Double(index) * 0.08),
+                                value: appeared
+                            )
                         }
                     }
                 }
@@ -51,6 +67,10 @@ struct WorkoutSummaryView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完成") { dismiss() }
                 }
+            }
+            .onAppear {
+                appeared = true
+                trophyPulse = true
             }
         }
     }

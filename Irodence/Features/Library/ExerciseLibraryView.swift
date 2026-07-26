@@ -56,9 +56,9 @@ struct ExerciseRow: View {
         NavigationLink(destination: ExerciseDetailView(exercise: exercise)) {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise.nameZh)
+                    Text(exercise.primaryName)
                         .font(.headline)
-                    Text(exercise.nameEn)
+                    Text(exercise.secondaryName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

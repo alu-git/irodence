@@ -1,0 +1,161 @@
+import Foundation
+
+/// Primary + secondary muscle activation for one exercise.
+struct ExerciseMuscles {
+    let primary: Set<Muscle>
+    let secondary: Set<Muscle>
+}
+
+/// Hand-curated activation map keyed by `name_en` (the stable library
+/// identifier). The library schema only stores one `primary_muscle`, which
+/// misrepresents compounds — e.g. deadlifts are mostly glutes/hamstrings,
+/// not "back". Anything missing falls back to the muscle-group mapping.
+enum ExerciseMuscleMap {
+
+    static func muscles(for exercise: Exercise) -> ExerciseMuscles {
+        muscles(nameEn: exercise.nameEn, primaryMuscle: exercise.primaryMuscle)
+    }
+
+    /// Lookup by stable name + library muscle group — for contexts (like the
+    /// social feed) that don't have a full `Exercise` row at hand.
+    static func muscles(nameEn: String, primaryMuscle: MuscleGroup) -> ExerciseMuscles {
+        overrides[nameEn] ?? ExerciseMuscles(
+            primary: primaryMuscle.diagramMuscles,
+            secondary: []
+        )
+    }
+
+    private static let overrides: [String: ExerciseMuscles] = [
+        // MARK: Original seed
+        "Barbell Back Squat":   .init(primary: [.quadriceps, .gluteal],
+                                      secondary: [.hamstring, .adductors, .lowerBack, .calves]),
+        "Bench Press":          .init(primary: [.chest],
+                                      secondary: [.triceps, .deltoids]),
+        "Deadlift":             .init(primary: [.hamstring, .gluteal, .lowerBack],
+                                      secondary: [.quadriceps, .trapezius, .forearm, .upperBack]),
+        "Overhead Press":       .init(primary: [.deltoids],
+                                      secondary: [.triceps, .trapezius, .abs]),
+        "Barbell Row":          .init(primary: [.upperBack],
+                                      secondary: [.biceps, .lowerBack, .forearm]),
+        "Pull-up":              .init(primary: [.upperBack],
+                                      secondary: [.biceps, .forearm]),
+        "Front Squat":          .init(primary: [.quadriceps],
+                                      secondary: [.gluteal, .abs, .lowerBack]),
+        "Romanian Deadlift":    .init(primary: [.hamstring],
+                                      secondary: [.gluteal, .lowerBack, .forearm]),
+        "Incline Bench Press":  .init(primary: [.chest],
+                                      secondary: [.deltoids, .triceps]),
+        "Hip Thrust":           .init(primary: [.gluteal],
+                                      secondary: [.hamstring, .quadriceps]),
+        "Dip":                  .init(primary: [.chest, .triceps],
+                                      secondary: [.deltoids]),
+        "Leg Press":            .init(primary: [.quadriceps],
+                                      secondary: [.gluteal, .hamstring, .calves]),
+        "Lat Pulldown":         .init(primary: [.upperBack],
+                                      secondary: [.biceps, .forearm]),
+        "Seated Cable Row":     .init(primary: [.upperBack],
+                                      secondary: [.biceps, .forearm, .lowerBack]),
+        "Power Clean":          .init(primary: [.quadriceps, .gluteal, .trapezius],
+                                      secondary: [.hamstring, .calves, .deltoids, .forearm, .lowerBack]),
+        "Dumbbell Bench Press": .init(primary: [.chest],
+                                      secondary: [.triceps, .deltoids]),
+        "Dumbbell Shoulder Press": .init(primary: [.deltoids],
+                                      secondary: [.triceps, .trapezius]),
+        "Lateral Raise":        .init(primary: [.deltoids],
+                                      secondary: [.trapezius]),
+        "Bicep Curl":           .init(primary: [.biceps],
+                                      secondary: [.forearm]),
+        "Hammer Curl":          .init(primary: [.biceps, .forearm],
+                                      secondary: []),
+        "Tricep Pushdown":      .init(primary: [.triceps],
+                                      secondary: []),
+        "Overhead Tricep Extension": .init(primary: [.triceps],
+                                      secondary: []),
+        "Leg Curl":             .init(primary: [.hamstring],
+                                      secondary: [.calves]),
+        "Leg Extension":        .init(primary: [.quadriceps],
+                                      secondary: []),
+        "Calf Raise":           .init(primary: [.calves],
+                                      secondary: []),
+        "Face Pull":            .init(primary: [.deltoids, .trapezius],
+                                      secondary: [.upperBack]),
+        "Chest Fly":            .init(primary: [.chest],
+                                      secondary: [.deltoids]),
+        "Bulgarian Split Squat": .init(primary: [.quadriceps, .gluteal],
+                                      secondary: [.hamstring, .adductors]),
+        "Goblet Squat":         .init(primary: [.quadriceps],
+                                      secondary: [.gluteal, .adductors]),
+        "Plank":                .init(primary: [.abs],
+                                      secondary: [.obliques, .deltoids]),
+        "Hanging Leg Raise":    .init(primary: [.abs],
+                                      secondary: [.obliques, .forearm]),
+
+        // MARK: Expanded library (step 7)
+        "Incline Dumbbell Press": .init(primary: [.chest],
+                                      secondary: [.deltoids, .triceps]),
+        "Machine Chest Press":  .init(primary: [.chest],
+                                      secondary: [.triceps, .deltoids]),
+        "Cable Fly":            .init(primary: [.chest],
+                                      secondary: [.deltoids]),
+        "Push-up":              .init(primary: [.chest],
+                                      secondary: [.triceps, .deltoids, .abs]),
+        "Pec Deck":             .init(primary: [.chest],
+                                      secondary: [.deltoids]),
+        "Single-Arm Dumbbell Row": .init(primary: [.upperBack],
+                                      secondary: [.biceps, .forearm, .lowerBack]),
+        "T-Bar Row":            .init(primary: [.upperBack],
+                                      secondary: [.biceps, .lowerBack, .forearm]),
+        "Chest-Supported Row":  .init(primary: [.upperBack],
+                                      secondary: [.biceps]),
+        "Straight-Arm Pulldown": .init(primary: [.upperBack],
+                                      secondary: [.triceps]),
+        "Chin-up":              .init(primary: [.upperBack, .biceps],
+                                      secondary: [.forearm]),
+        "Arnold Press":         .init(primary: [.deltoids],
+                                      secondary: [.triceps]),
+        "Rear Delt Fly":        .init(primary: [.deltoids],
+                                      secondary: [.trapezius, .upperBack]),
+        "Barbell Shrug":        .init(primary: [.trapezius],
+                                      secondary: [.forearm]),
+        "Machine Shoulder Press": .init(primary: [.deltoids],
+                                      secondary: [.triceps]),
+        "Hack Squat":           .init(primary: [.quadriceps],
+                                      secondary: [.gluteal, .calves]),
+        "Walking Lunge":        .init(primary: [.quadriceps, .gluteal],
+                                      secondary: [.hamstring, .adductors, .calves]),
+        "Smith Machine Squat":  .init(primary: [.quadriceps],
+                                      secondary: [.gluteal, .hamstring, .adductors]),
+        "Seated Leg Curl":      .init(primary: [.hamstring],
+                                      secondary: [.calves]),
+        "Good Morning":         .init(primary: [.hamstring],
+                                      secondary: [.gluteal, .lowerBack]),
+        "Hip Abductor Machine": .init(primary: [.gluteal],
+                                      secondary: []),
+        "Cable Kickback":       .init(primary: [.gluteal],
+                                      secondary: [.hamstring]),
+        "Barbell Curl":         .init(primary: [.biceps],
+                                      secondary: [.forearm]),
+        "Preacher Curl":        .init(primary: [.biceps],
+                                      secondary: [.forearm]),
+        "Cable Curl":           .init(primary: [.biceps],
+                                      secondary: [.forearm]),
+        "Skullcrusher":         .init(primary: [.triceps],
+                                      secondary: [.forearm]),
+        "Close-Grip Bench Press": .init(primary: [.triceps],
+                                      secondary: [.chest, .deltoids]),
+        "Overhead Cable Extension": .init(primary: [.triceps],
+                                      secondary: []),
+        "Seated Calf Raise":    .init(primary: [.calves],
+                                      secondary: []),
+        "Cable Crunch":         .init(primary: [.abs],
+                                      secondary: [.obliques]),
+        "Ab Wheel Rollout":     .init(primary: [.abs],
+                                      secondary: [.obliques, .upperBack]),
+        "Russian Twist":        .init(primary: [.obliques],
+                                      secondary: [.abs]),
+        "Side Plank":           .init(primary: [.obliques],
+                                      secondary: [.abs, .gluteal]),
+        "Dead Bug":             .init(primary: [.abs],
+                                      secondary: [.obliques]),
+    ]
+}

@@ -1,16 +1,16 @@
 import SwiftUI
 
-/// Leaderboard tab: strength board (per lift, est 1RM or DOTS) and the
-/// weekly volume board. Each supports 全球 / 好友 scope.
-struct LeaderboardView: View {
+/// Leaderboard content: strength board (per lift, est 1RM or DOTS) and the
+/// weekly volume board. Each supports 全球 / 好友 scope. Hosted inside
+/// SocialView, which owns the NavigationStack and the shared SocialService.
+struct LeaderboardBoardsView: View {
     @EnvironmentObject private var library: ExerciseService
-    @StateObject private var service: SocialService
+    @ObservedObject var service: SocialService
 
     @State private var board: Board = .strength
     @State private var lift: CoreLift = .squat
     @State private var scope: Scope = .global
     @State private var sort: StrengthSort = .dots
-    @State private var showFriendSearch = false
 
     enum Board: String, CaseIterable {
         case strength, volume
@@ -42,46 +42,27 @@ struct LeaderboardView: View {
         }
     }
 
-    init(userID: UUID) {
-        _service = StateObject(wrappedValue: SocialService(userID: userID))
-    }
-
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                Picker("榜单", selection: $board) {
-                    ForEach(Board.allCases, id: \.self) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
+        VStack(spacing: 0) {
+            Picker("榜单", selection: $board) {
+                ForEach(Board.allCases, id: \.self) { Text($0.displayName).tag($0) }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
 
-                controls
+            controls
 
-                if board == .strength {
-                    strengthList
-                } else {
-                    volumeList
-                }
+            if board == .strength {
+                strengthList
+            } else {
+                volumeList
             }
-            .navigationTitle("排行榜")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showFriendSearch = true
-                    } label: {
-                        Image(systemName: "person.badge.plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showFriendSearch) {
-                FriendSearchView(service: service)
-            }
-            .task { await reload() }
-            .onChange(of: lift) { _ in Task { await reload() } }
-            .onChange(of: board) { _ in Task { await reload() } }
-            .refreshable { await reload() }
         }
+        .task { await reload() }
+        .onChange(of: lift) { _ in Task { await reload() } }
+        .onChange(of: board) { _ in Task { await reload() } }
+        .refreshable { await reload() }
     }
 
     // MARK: - Controls
@@ -141,9 +122,7 @@ struct LeaderboardView: View {
     private var strengthList: some View {
         Group {
             if service.isLoading {
-                Spacer()
                 ProgressView()
-                Spacer()
             } else if visibleEntries.isEmpty {
                 ComingSoonView(
                     title: scope == .friends ? "好友里还没有人上榜" : "还没有人上榜",
@@ -172,9 +151,7 @@ struct LeaderboardView: View {
     private var volumeList: some View {
         Group {
             if service.isLoading {
-                Spacer()
                 ProgressView()
-                Spacer()
             } else if visibleVolume.isEmpty {
                 ComingSoonView(title: "本周还没有训练记录", systemImage: "chart.bar",
                                subtitle: "完成一次训练即可上榜")
@@ -222,7 +199,7 @@ private struct StrengthRowView: View {
     let rank: Int
     let entry: LeaderboardEntry
     let isSelf: Bool
-    let sort: LeaderboardView.StrengthSort
+    let sort: LeaderboardBoardsView.StrengthSort
 
     var body: some View {
         HStack {
