@@ -3,8 +3,9 @@ import Supabase
 
 /// All workout-related Supabase I/O. Local logging state lives in
 /// WorkoutManager; this service is the write-through + query layer.
-@MainActor
-final class WorkoutService {
+/// Stateless, so it stays non-isolated and callers can fire requests in
+/// parallel from task groups.
+final class WorkoutService: Sendable {
     private let client = SupabaseService.client
 
     // MARK: - Workout lifecycle
@@ -95,7 +96,8 @@ final class WorkoutService {
         let workout_exercise_id: UUID
         let set_index: Int
         let weight_kg: Double
-        let reps: Int
+        let reps: Int?
+        let duration_seconds: Int?
         let rpe: Double?
         let is_warmup: Bool
     }
@@ -112,7 +114,8 @@ final class WorkoutService {
 
     struct SetUpdate: Encodable {
         let weight_kg: Double
-        let reps: Int
+        let reps: Int?
+        let duration_seconds: Int?
         let rpe: Double?
         let is_warmup: Bool
     }
