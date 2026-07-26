@@ -25,6 +25,33 @@ struct WorkoutStartView: View {
                 }
                 .listRowBackground(Color.clear)
 
+                Section("推荐模板") {
+                    ForEach(BuiltInTemplate.all) { template in
+                        Button {
+                            Task {
+                                await library.loadIfNeeded()
+                                await manager.startBuiltIn(template, library: library)
+                            }
+                        } label: {
+                            HStack {
+                                Image(systemName: template.systemImage)
+                                    .foregroundStyle(Color.accentColor)
+                                VStack(alignment: .leading) {
+                                    Text(template.name).font(.headline)
+                                    Text("\(template.subtitle) · \(template.items.count) 个动作")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
+                        }
+                        .tint(.primary)
+                    }
+                }
+
                 Section("模板") {
                     if isLoadingTemplates {
                         ProgressView()
