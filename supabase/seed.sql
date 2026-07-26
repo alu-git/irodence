@@ -100,6 +100,8 @@ on conflict do nothing;
 -- 2d. Backfill columns GoTrue v2.193+ scans as non-NULL at sign-in. Raw
 --     inserts leave them NULL (GoTrue's own signup writes ''), which makes
 --     password sign-in 500 with "Database error querying schema".
+--     phone is deliberately excluded: users_phone_key is UNIQUE, so ''
+--     can only ever appear once — NULL is the correct value for email users.
 update auth.users
 set confirmation_token         = coalesce(confirmation_token, ''),
     recovery_token             = coalesce(recovery_token, ''),
@@ -109,7 +111,6 @@ set confirmation_token         = coalesce(confirmation_token, ''),
     email_change_token_current = coalesce(email_change_token_current, ''),
     phone_change_token         = coalesce(phone_change_token, ''),
     phone_change               = coalesce(phone_change, ''),
-    phone                      = coalesce(phone, ''),
     email_change_confirm_status = coalesce(email_change_confirm_status, 0)
 where email like 'mock-%@irodence.app' or email = 'dev-test@irodence.app';
 
