@@ -77,6 +77,26 @@ values (
     now()
 );
 
+-- 2c. Identities for the seeded users. GoTrue ≥ ~v2.177 no longer backfills
+--     auth.identities for SQL-inserted users, and password sign-in fails with
+--     HTTP 500 "Database error querying schema" when the row is missing.
+insert into auth.identities (
+    id, user_id, provider_id, identity_data, provider,
+    last_sign_in_at, created_at, updated_at
+)
+select
+    gen_random_uuid(),
+    u.id,
+    u.email,
+    jsonb_build_object('sub', u.id::text, 'email', u.email),
+    'email',
+    now(),
+    now(),
+    now()
+from auth.users u
+where u.email like 'mock-%@irodence.app' or u.email = 'dev-test@irodence.app'
+on conflict do nothing;
+
 -- 3. Profile details (sex + bodyweight feed DOTS / leaderboard tiers).
 update public.profiles p
 set sex = v.sex, bodyweight_kg = v.bw, avatar_url = v.avatar
