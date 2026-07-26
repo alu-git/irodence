@@ -8,6 +8,7 @@ final class SocialService: ObservableObject {
     @Published private(set) var entries: [LeaderboardEntry] = []
     @Published private(set) var weeklyVolume: [WeeklyVolumeEntry] = []
     @Published private(set) var searchResults: [Profile] = []
+    @Published private(set) var recommendations: [Profile] = []
     @Published private(set) var isLoading = false
     @Published var errorMessage: String?
 
@@ -47,6 +48,7 @@ final class SocialService: ObservableObject {
                 .insert(FollowInsert(follower_id: userID, followee_id: followeeID))
                 .execute()
             followingIDs.insert(followeeID)
+            recommendations.removeAll { $0.id == followeeID }
         } catch {
             errorMessage = "关注失败"
         }
@@ -83,6 +85,42 @@ final class SocialService: ObservableObject {
                 .value
         } catch {
             errorMessage = "搜索失败"
+        }
+    }
+
+    // MARK: - Friend recommendations
+
+    /// Suggested users for the add-friends sheet: this week's most active
+    /// lifters first (ranked via the weekly_volume view), backfilled with the
+    /// newest profiles. Excludes yourself and people you already follow.
+    func loadRecommendations() async {
+        struct VolumeRow: Decodable { let user_id: UUID }
+        do {
+            async let volumeQuery: [VolumeRow] = client
+                .from("weekly_volume")
+                .select("user_id")
+                .order("total_volume_kg", ascending: false)
+                .limit(30)
+                .execute()
+                .value
+            async let profilesQuery: [Profile] = client
+                .from("profiles")
+                .select()
+                .order("created_at", ascending: false)
+                .limit(50)
+                .execute()
+                .value
+            let (volumeRows, profiles) = try await (volumeQuery, profilesQuery)
+
+            let rank = Dictionary(
+                uniqueKeysWithValues: volumeRows.map(\.user_id).enumerated().map { ($1, $0) }
+            )
+            let candidates = profiles
+                .filter { $0.id != userID && !followingIDs.contains($0.id) }
+                .sorted { (rank[$0.id] ?? .max) < (rank[$1.id] ?? .max) }
+            recommendations = Array(candidates.prefix(10))
+        } catch {
+            errorMessage = "推荐加载失败"
         }
     }
 
