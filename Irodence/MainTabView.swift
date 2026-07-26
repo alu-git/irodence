@@ -24,14 +24,18 @@ struct MainTabView: View {
                 .tabItem { Label("动作库", systemImage: "list.bullet.rectangle") }
                 .environmentObject(library)
 
-            LeaderboardView(userID: userID)
-                .tabItem { Label("排行榜", systemImage: "trophy.fill") }
+            SocialView(userID: userID)
+                .tabItem { Label("社交", systemImage: "person.2.fill") }
                 .environmentObject(library)
 
             ProfileView(userID: userID)
                 .tabItem { Label("我的", systemImage: "person.fill") }
                 .environmentObject(library)
+                .environmentObject(workoutManager)
         }
+        // Warm the exercise library right after sign-in so every tab
+        // (profile tiers, built-in templates, picker) has it ready.
+        .task { await library.loadIfNeeded() }
     }
 
     private func placeholder(_ title: String, systemImage: String) -> some View {
@@ -56,6 +60,10 @@ struct ComingSoonView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
+        // Fill the parent so the content centers in the remaining space
+        // instead of dragging sibling views (e.g. Social's segmented
+        // picker) into the middle of the screen.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
