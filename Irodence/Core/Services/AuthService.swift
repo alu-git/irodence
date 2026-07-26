@@ -71,19 +71,20 @@ final class AuthService: ObservableObject {
 
     // MARK: - Test bypass (DEBUG only)
 
-    /// Skips the real login flow for development.
-    /// 1. Tries Supabase anonymous sign-in — a REAL session, so all RLS-backed
-    ///    data works. Requires "Anonymous sign-ins" enabled in the dashboard
-    ///    (Authentication → Sign In / Up → Anonymous).
-    /// 2. Falls back to a local-only preview session (random UUID) so the UI
-    ///    is navigable without any backend session — data just won't load.
+    /// Skips the real login flow for development by signing into a fixed,
+    /// pre-seeded account (`supabase/seed.sql`, id ...000009). This is a REAL
+    /// Supabase session — RLS-backed data, the debug preview tools, and the
+    /// mock social graph all work immediately, with no dependency on
+    /// Supabase's anonymous-auth dashboard setting.
     func signInAsTestUser() async {
         do {
-            let session = try await client.auth.signInAnonymously()
+            let session = try await client.auth.signIn(
+                email: "dev-test@irodence.app",
+                password: "devtest123456"
+            )
             state = .signedIn(userID: session.user.id)
         } catch {
-            // Local preview fallback — no backend session
-            state = .signedIn(userID: UUID())
+            errorMessage = "测试账号登录失败，请先在 Supabase 运行 supabase/seed.sql (\(error.localizedDescription))"
         }
     }
 
