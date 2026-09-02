@@ -1,0 +1,54 @@
+/* ========================================================================= */
+/* 铁证 / Irodence — Forge Vocabulary Localization (Simplified Chinese)       */
+/* ========================================================================= */
+
+/* Empty States */
+"empty.trainingHistory" = "熔炉尚未点燃。今天，准备添柴了吗？";
+"empty.verifications" = "好钢需人验。发一条动态，喊同炉兄弟来验杠。";
+"crew.empty.pendingMembers" = "炉子还不够旺，再喊 %d 位铁匠入炉。";
+
+/* Loading */
+"loading.forge" = "正在锻打…";
+
+/* Primary Actions */
+"action.session.start" = "开炉";
+"action.session.end" = "收工";
+"action.proof.submit" = "上铁证";
+"action.proof.witness" = "验杠";
+"action.crew.nudge" = "加炭";
+
+/* Notifications */
+"notification.witnessed" = "%@ 为你验杠！%@ %@kg 已认证。";
+"notification.tierUp" = "百炼成钢！你已锻造出【%@】段位。";
+"notification.crewmateRusting" = "%@ 已生锈 %d 天，去加炭。";
+"notification.reportUnderReview" = "你的一条记录进入复核，结果会在 48 小时内通知你。";
+
+/* Tier Promotion Modals (段位晋升弹窗) */
+"tier.promotion.pigIron.title" = "初具雏形！";
+"tier.promotion.pigIron.subtitle" = "你已褪去废铁之名，正式踏入熔炉。记住，真正的锻造，现在才开始！";
+"tier.promotion.pigIron.action" = "继续添柴";
+
+"tier.promotion.wroughtIron.title" = "烈火淬炼！";
+"tier.promotion.wroughtIron.subtitle" = "汗水洗去了杂质，你的底盘已经稳固。保持这个炉温，别让自己冷下来！";
+"tier.promotion.wroughtIron.action" = "稳住火候";
+
+"tier.promotion.reforged.title" = "百折不挠！";
+"tier.promotion.reforged.subtitle" = "经历了无数次力竭与重组，你扛住了重锤！现在的你，比生铁坚韧百倍！";
+"tier.promotion.reforged.action" = "迎接重锤";
+
+"tier.promotion.refinedSteel.title" = "百炼成钢！";
+"tier.promotion.refinedSteel.subtitle" = "杂质尽除，锋芒初露！你已经是这片铁匠铺里的中流砥柱，无数新铁正仰望你！";
+"tier.promotion.refinedSteel.action" = "锋芒出鞘";
+
+"tier.promotion.hundredFold.title" = "登峰造极！";
+"tier.promotion.hundredFold.subtitle" = "千万次锻打铸就了这副钢铁之躯！你的每一次试举，都是这座熔炉的教科书！";
+"tier.promotion.hundredFold.action" = "铸就传奇";
+
+"tier.promotion.mastery.title" = "人铁合一！";
+"tier.promotion.mastery.subtitle" = "无需再借外力，你本身就是最硬的铁证！向这座城市的极限，致敬！";
+"tier.promotion.mastery.action" = "镇炉之宝";
+
+/* Errors — Plain, No Metaphor */
+"error.network" = "网络连接失败，请检查网络后重试。";
+"error.videoFormat" = "不支持该视频格式，请上传 MP4 或 MOV。";
+"error.saveFailed" = "保存失败，请重试。数据已保留在本地。";

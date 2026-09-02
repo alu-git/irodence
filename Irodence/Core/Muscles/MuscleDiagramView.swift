@@ -25,6 +25,8 @@ struct MuscleDiagramView: View {
     var secondaryColor: Color = .accentColor.opacity(0.45)
     var inactiveColor: Color = Color(.systemGray4)
     var outlineColor: Color = Color(.systemGray2)
+    /// When true, auto-zooms the view frame onto the activated muscles with padding.
+    var zoomToActivated: Bool = false
 
     /// viewBox of the source artwork for the current gender/side.
     private var viewBox: CGRect {
@@ -34,6 +36,57 @@ struct MuscleDiagramView: View {
         case (.female, .front): return CGRect(x: -50, y: -40, width: 734, height: 1538)
         case (.female, .back):  return CGRect(x: 756, y: 0, width: 774, height: 1448)
         }
+    }
+
+    /// Effective viewBox for rendering. When `zoomToActivated` is enabled and
+    /// muscles are active, crops and zooms onto the activated region while
+    /// preserving context around the muscle group.
+    private var effectiveViewBox: CGRect {
+        guard zoomToActivated else { return viewBox }
+
+        let allActivated = activated.union(secondaryActivated)
+        guard !allActivated.isEmpty else { return viewBox }
+
+        var unionRect: CGRect?
+        for muscle in allActivated {
+            if geometry[muscle] != nil {
+                let rect = combinedPath(for: muscle).boundingRect
+                if !rect.isEmpty && !rect.isNull {
+                    unionRect = unionRect?.union(rect) ?? rect
+                }
+            }
+        }
+
+        guard let targetRect = unionRect, !targetRect.isEmpty, !targetRect.isNull else {
+            return viewBox
+        }
+
+        // Add padding around target muscles
+        let verticalPadding = max(targetRect.height * 0.45, 120)
+        let rawCropHeight = targetRect.height + 2 * verticalPadding
+
+        // Minimum crop height (~38% of body height) so body context is preserved
+        let minCropHeight = viewBox.height * 0.38
+        let cropHeight = min(max(rawCropHeight, minCropHeight), viewBox.height)
+
+        var cropY = targetRect.midY - cropHeight / 2
+        if cropY < viewBox.minY {
+            cropY = viewBox.minY
+        } else if cropY + cropHeight > viewBox.maxY {
+            cropY = viewBox.maxY - cropHeight
+        }
+
+        // Keep crop width within the body's own width so nothing bleeds out
+        let aspect = viewBox.width / viewBox.height
+        let rawCropWidth = cropHeight * aspect
+        let cropWidth = min(max(rawCropWidth, targetRect.width + 60), viewBox.width)
+
+        // Centre the crop horizontally, then clamp inside [viewBox.minX, viewBox.maxX]
+        var cropX = viewBox.midX - cropWidth / 2
+        if cropX < viewBox.minX { cropX = viewBox.minX }
+        if cropX + cropWidth > viewBox.maxX { cropX = viewBox.maxX - cropWidth }
+
+        return CGRect(x: cropX, y: cropY, width: cropWidth, height: cropHeight)
     }
 
     private var geometry: [Muscle: [[String]]] {
@@ -90,11 +143,14 @@ struct MuscleDiagramView: View {
                     .applying(transform)
                     .stroke(outlineColor, lineWidth: 2)
             }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .clipped()
             .animation(.easeInOut(duration: 0.35), value: activated)
             .animation(.easeInOut(duration: 0.35), value: secondaryActivated)
         }
-        .aspectRatio(viewBox.width / viewBox.height, contentMode: .fit)
-        .accessibilityLabel("身体肌肉图，\(side.displayName)面")
+        .aspectRatio(effectiveViewBox.width / effectiveViewBox.height, contentMode: .fit)
+        .clipped()
+        .accessibilityLabel(L10n.t("身体肌肉图，\(side.displayName)面", "Body muscle diagram, \(side.displayName) view"))
     }
 
     /// Left + right halves of one muscle combined into a single Path.
@@ -111,9 +167,10 @@ struct MuscleDiagramView: View {
 
     /// Scale + translate the source viewBox into the available size.
     private func fitTransform(in size: CGSize) -> CGAffineTransform {
-        let scale = min(size.width / viewBox.width, size.height / viewBox.height)
-        let tx = (size.width - viewBox.width * scale) / 2 - viewBox.minX * scale
-        let ty = (size.height - viewBox.height * scale) / 2 - viewBox.minY * scale
+        let box = effectiveViewBox
+        let scale = min(size.width / box.width, size.height / box.height)
+        let tx = (size.width - box.width * scale) / 2 - box.minX * scale
+        let ty = (size.height - box.height * scale) / 2 - box.minY * scale
         return CGAffineTransform(a: scale, b: 0, c: 0, d: scale, tx: tx, ty: ty)
     }
 }
@@ -124,6 +181,11 @@ struct MuscleDiagramView: View {
 struct MiniMuscleDiagram: View {
     let primary: Set<Muscle>
     var secondary: Set<Muscle> = []
+    var highlightColor: Color = .accentColor
+    var secondaryColor: Color = .accentColor.opacity(0.45)
+    var inactiveColor: Color = Color(.systemGray5)
+    var outlineColor: Color = Color(.systemGray4)
+    var zoomToActivated: Bool = true
 
     private var side: BodyViewSide {
         func coverage(_ geometry: [Muscle: [[String]]]) -> Int {
@@ -138,8 +200,11 @@ struct MiniMuscleDiagram: View {
             activated: primary,
             secondaryActivated: secondary,
             side: side,
-            inactiveColor: Color(.systemGray5),
-            outlineColor: .clear
+            highlightColor: highlightColor,
+            secondaryColor: secondaryColor,
+            inactiveColor: inactiveColor,
+            outlineColor: outlineColor,
+            zoomToActivated: zoomToActivated
         )
         .accessibilityHidden(true)
     }
@@ -160,7 +225,7 @@ struct MuscleDiagramPairView: View {
                 side: side, gender: gender,
                 highlightColor: highlightColor
             )
-            Picker("方向", selection: $side) {
+            Picker(L10n.t("方向", "Side"), selection: $side) {
                 ForEach(BodyViewSide.allCases, id: \.self) {
                     Text($0.displayName).tag($0)
                 }

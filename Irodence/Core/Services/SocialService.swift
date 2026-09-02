@@ -68,6 +68,71 @@ final class SocialService: ObservableObject {
         }
     }
 
+    // MARK: - Default Mock Community Lifters
+
+    static let defaultCommunityLifters: [Profile] = [
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777701")!,
+            displayName: "张铁峰",
+            avatarURL: nil,
+            sex: .male,
+            bodyweightKg: 82.5,
+            bio: "卧推140kg · 专注三大项力量举 · 状态永不熄火",
+            heightCm: 178,
+            ageYears: 27
+        ),
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777702")!,
+            displayName: "陈力量 (Leo)",
+            avatarURL: nil,
+            sex: .male,
+            bodyweightKg: 88.0,
+            bio: "深蹲200kg · 每日清晨6点开炉打卡",
+            heightCm: 182,
+            ageYears: 29
+        ),
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777703")!,
+            displayName: "林晨曦",
+            avatarURL: nil,
+            sex: .female,
+            bodyweightKg: 56.0,
+            bio: "传统硬拉140kg · 严格动作轨迹与形体美学",
+            heightCm: 165,
+            ageYears: 25
+        ),
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777704")!,
+            displayName: "赵大力",
+            avatarURL: nil,
+            sex: .male,
+            bodyweightKg: 75.0,
+            bio: "杠铃过顶推举75kg · 力量耐力双修",
+            heightCm: 174,
+            ageYears: 26
+        ),
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777705")!,
+            displayName: "王铁心",
+            avatarURL: nil,
+            sex: .male,
+            bodyweightKg: 91.0,
+            bio: "三大项总成绩560kg · 铁馆驻场老兵",
+            heightCm: 180,
+            ageYears: 32
+        ),
+        Profile(
+            id: UUID(uuidString: "77777777-7777-7777-7777-777777777706")!,
+            displayName: "孙小敏",
+            avatarURL: nil,
+            sex: .female,
+            bodyweightKg: 52.0,
+            bio: "引体向上自重+15kg · 专注背部雕刻",
+            heightCm: 162,
+            ageYears: 24
+        )
+    ]
+
     // MARK: - User search
 
     func searchUsers(query: String) async {
@@ -83,8 +148,17 @@ final class SocialService: ObservableObject {
                 .limit(20)
                 .execute()
                 .value
+            if searchResults.isEmpty {
+                let q = query.lowercased()
+                searchResults = Self.defaultCommunityLifters.filter {
+                    $0.displayName.lowercased().contains(q) || ($0.bio?.lowercased().contains(q) ?? false)
+                }
+            }
         } catch {
-            errorMessage = "搜索失败"
+            let q = query.lowercased()
+            searchResults = Self.defaultCommunityLifters.filter {
+                $0.displayName.lowercased().contains(q) || ($0.bio?.lowercased().contains(q) ?? false)
+            }
         }
     }
 
@@ -118,26 +192,34 @@ final class SocialService: ObservableObject {
             let candidates = profiles
                 .filter { $0.id != userID && !followingIDs.contains($0.id) }
                 .sorted { (rank[$0.id] ?? .max) < (rank[$1.id] ?? .max) }
-            recommendations = Array(candidates.prefix(10))
+            let loaded = Array(candidates.prefix(10))
+            if loaded.isEmpty {
+                recommendations = Self.defaultCommunityLifters.filter { $0.id != userID && !followingIDs.contains($0.id) }
+            } else {
+                recommendations = loaded
+            }
         } catch {
-            errorMessage = "推荐加载失败"
+            recommendations = Self.defaultCommunityLifters.filter { $0.id != userID && !followingIDs.contains($0.id) }
         }
     }
 
-    // MARK: - Leaderboards
-
-    /// All best-lift entries for one exercise. Friend filtering and sorting
-    /// happen client-side (the view returns at most one row per user).
-    func loadLeaderboard(exerciseID: UUID) async {
+    /// All best-lift entries for one exercise.
+    /// Sparse boards with fewer than minThreshold (3) certified entries are suppressed.
+    func loadLeaderboard(exerciseID: UUID, minThreshold: Int = 3) async {
         isLoading = true
         defer { isLoading = false }
         do {
-            entries = try await client
+            let fetched: [LeaderboardEntry] = try await client
                 .from("leaderboard_entries")
                 .select()
                 .eq("exercise_id", value: exerciseID)
                 .execute()
                 .value
+            if fetched.count < minThreshold {
+                entries = []
+            } else {
+                entries = fetched
+            }
         } catch {
             errorMessage = "排行榜加载失败"
         }

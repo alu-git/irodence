@@ -66,5 +66,15 @@
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>SmileySans-Oblique.otf</string>
+	</array>
+
+	<!-- App Store Review Compliance: Privacy Permission Descriptions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于选取训练试举视频进行力量认证验杠，或记录形体对比进度照片。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍摄训练试举视频进行认证验杠，或拍摄训练结束总结打卡照片。</string>
 </dict>
 </plist>

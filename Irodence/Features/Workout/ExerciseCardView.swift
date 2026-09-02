@@ -1,110 +1,163 @@
 import SwiftUI
 
 /// One exercise inside the active workout: header + editable set rows.
-///
-/// Views reach into `WorkoutManager.exercises` by INDEX. When the workout
-/// finishes (or an exercise is removed), the array shrinks while SwiftUI may
-/// still evaluate this subtree for one more pass — so every subscript goes
-/// through a bounds check and out-of-date rows render as nothing.
+/// Follows IRODENCE_DESIGN.md visual discipline:
+/// - Active set receives 3.5pt ember left edge & raised surface.
+/// - Completed sets are dimmed with filled ember check.
+/// - Future sets stay flat with subtle border.
+/// - Gym-grade, high-contrast, bold typography readable from a distance.
 struct ExerciseCardView: View {
     @EnvironmentObject private var manager: WorkoutManager
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
     let exerciseIndex: Int
+
+    @State private var showDetail = false
 
     private var exercise: WorkoutManager.ActiveExercise? {
         manager.exercises[safe: exerciseIndex]
     }
 
+    private var hasPreviousHistory: Bool {
+        guard let exercise else { return false }
+        return !exercise.previousSets.isEmpty || exercise.sets.contains { $0.prevWeight != nil || $0.prevReps != nil || $0.prevDuration != nil }
+    }
+
     var body: some View {
         if let exercise {
             cardContent(exercise)
+                .sheet(isPresented: $showDetail) {
+                    NavigationStack {
+                        ExerciseDetailView(exercise: exercise.exercise)
+                    }
+                }
         }
     }
 
     @ViewBuilder
     private func cardContent(_ exercise: WorkoutManager.ActiveExercise) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm + 2) {
             header(exercise)
-            setHeader
-            ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, set in
-                SetRowView(exerciseIndex: exerciseIndex, setIndex: setIndex)
-                if setIndex < exercise.sets.count - 1 {
-                    Divider().padding(.leading, 12)
+            setHeader(hasHistory: hasPreviousHistory)
+
+            VStack(spacing: 8) {
+                ForEach(Array(exercise.sets.enumerated()), id: \.element.id) { setIndex, _ in
+                    SetRowView(
+                        exerciseIndex: exerciseIndex,
+                        setIndex: setIndex,
+                        showPreviousColumn: hasPreviousHistory
+                    )
                 }
             }
+
+            // Subdued Add Set Button (Ember scarcity enforced, large touch target)
             Button {
                 manager.addSet(to: exerciseIndex)
             } label: {
-                Label("添加组", systemImage: "plus")
-                    .font(.subheadline.weight(.medium))
+                HStack(spacing: 8) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 16, weight: .bold))
+                    Text(L10n.t("添加组", "Add Set"))
+                        .font(.system(size: 16, weight: .bold))
+                }
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .fill(Theme.Colors.surfaceSunken)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+                )
             }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 10)
+            .buttonStyle(.plain)
+            .padding(.top, 4)
         }
-        .background(Color(.secondarySystemGroupedBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
+        .padding(Theme.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .fill(Theme.Colors.surfaceRaised)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+        )
     }
 
     private func header(_ exercise: WorkoutManager.ActiveExercise) -> some View {
         HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.exercise.primaryName).font(.headline)
-                if let group = exercise.supersetGroup {
-                    Label("超级组 \(supersetLetter(group))", systemImage: "link")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
+            Text(exercise.exercise.primaryName)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundStyle(Theme.Colors.textPrimary)
+
+            if let group = exercise.supersetGroup {
+                Text(L10n.t("超级组 \(supersetLetter(group))", "Superset \(supersetLetter(group))"))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Theme.Colors.ember)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(Theme.Colors.surfaceSunken, in: RoundedRectangle(cornerRadius: Theme.Radius.stamp))
             }
+
             Spacer()
+
             Menu {
+                Button {
+                    showDetail = true
+                } label: {
+                    Label(L10n.t("查看动作详情", "View Exercise Details"), systemImage: "info.circle")
+                }
                 if exerciseIndex > 0, exercise.supersetGroup == nil {
                     Button {
                         Task { await manager.supersetWithPrevious(at: exerciseIndex) }
                     } label: {
-                        Label("与上一动作组成超级组", systemImage: "link")
+                        Label(L10n.t("与上一动作组成超级组", "Superset with Previous"), systemImage: "link")
                     }
                 }
                 if exercise.supersetGroup != nil {
                     Button {
                         Task { await manager.removeFromSuperset(at: exerciseIndex) }
                     } label: {
-                        Label("取消超级组", systemImage: "link.badge.plus")
+                        Label(L10n.t("取消超级组", "Remove Superset"), systemImage: "link.badge.plus")
                     }
                 }
                 Button(role: .destructive) {
                     Task { await manager.removeExercise(at: exerciseIndex) }
                 } label: {
-                    Label("移除动作", systemImage: "trash")
+                    Label(L10n.t("移除动作", "Remove Exercise"), systemImage: "trash")
                 }
             } label: {
                 Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(Theme.Colors.textMuted)
                     .padding(8)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.top, 10)
     }
 
-    private var setHeader: some View {
+    private func setHeader(hasHistory: Bool) -> some View {
         let mode = exercise?.exercise.trackingMode ?? .weighted
         return HStack(spacing: 8) {
-            Text("组").frame(width: 32)
-            Text("上次").frame(width: 64)
+            Text(L10n.t("组", "Set")).frame(width: 44)
+            if hasHistory {
+                Text(L10n.t("上次", "Prev")).frame(width: 76)
+            }
             switch mode {
             case .weighted:
                 Text("kg").frame(maxWidth: .infinity)
-                Text("次数").frame(maxWidth: .infinity)
+                Text(L10n.t("次", "Reps")).frame(maxWidth: .infinity)
             case .bodyweight:
-                Text("次数").frame(maxWidth: .infinity)
+                Text(L10n.t("次数", "Reps")).frame(maxWidth: .infinity)
             case .duration:
-                Text("时长").frame(maxWidth: .infinity)
+                Text(L10n.t("时长", "Time")).frame(maxWidth: .infinity)
             }
-            Text("RPE").frame(width: 44)
-            Text("").frame(width: 32)
+            Text("RPE").frame(width: 48)
+            Text("").frame(width: 40)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 12)
+        .font(.system(size: 15, weight: .bold))
+        .foregroundStyle(Theme.Colors.textSecondary)
+        .padding(.horizontal, 4)
     }
 
     private func supersetLetter(_ group: Int) -> String {
@@ -112,11 +165,21 @@ struct ExerciseCardView: View {
     }
 }
 
-/// A single set row: previous-session placeholder + editable fields.
+/// A gym-proof single set row:
+/// - 48pt touch targets for chalked fingers
+/// - Active set ember indicator bar
+/// - Big, bold high-contrast fonts
+/// - Ghosted previous-session numbers as tap-to-accept placeholders
 struct SetRowView: View {
     @EnvironmentObject private var manager: WorkoutManager
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
     let exerciseIndex: Int
     let setIndex: Int
+    let showPreviousColumn: Bool
+
+    @FocusState private var isWeightFocused: Bool
+    @FocusState private var isRepsFocused: Bool
+    @State private var showPlateChips = false
 
     private var set: WorkoutManager.ActiveSet? {
         manager.exercises[safe: exerciseIndex]?.sets[safe: setIndex]
@@ -126,44 +189,55 @@ struct SetRowView: View {
         manager.exercises[safe: exerciseIndex]?.exercise.trackingMode ?? .weighted
     }
 
+    private var isActive: Bool {
+        manager.isActiveSet(exerciseIndex: exerciseIndex, setIndex: setIndex)
+    }
+
     var body: some View {
         if let set {
-            row(set)
+            VStack(spacing: 6) {
+                mainRow(set)
+
+                // Quick Plate Increments Bar when active & weighted
+                if isActive && mode == .weighted && !set.isCompleted && (isWeightFocused || showPlateChips) {
+                    plateToolbar
+                        .transition(.opacity.combined(with: .scale(scale: 0.95)))
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: isWeightFocused || showPlateChips)
         }
     }
 
     @ViewBuilder
-    private func row(_ set: WorkoutManager.ActiveSet) -> some View {
+    private func mainRow(_ set: WorkoutManager.ActiveSet) -> some View {
         HStack(spacing: 8) {
-            // Set number / warmup toggle
+            // Set number / Warmup toggle
             Button {
+                ForgeHaptics.selection()
                 Task { await manager.toggleWarmup(exerciseIndex: exerciseIndex, setID: set.id) }
             } label: {
-                Text(set.isWarmup ? "热身" : "\(workingSetNumber)")
-                    .font(.caption.monospacedDigit().weight(.semibold))
-                    .frame(width: 32, height: 28)
-                    .background(set.isWarmup ? Color.orange.opacity(0.2) : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                Text(set.isWarmup ? "W" : "\(workingSetNumber)")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(set.isWarmup ? Theme.Colors.ember : (isActive ? Theme.Colors.textPrimary : Theme.Colors.textSecondary))
+                    .frame(width: 40, height: 48)
+                    .background(set.isWarmup ? Theme.Colors.ember.opacity(0.18) : Color.clear)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(set.isWarmup ? .orange : .secondary)
 
-            // Previous session placeholder
-            Text(previousText(set))
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(width: 64)
+            // Previous session placeholder column (collapsed if no history)
+            if showPreviousColumn {
+                Text(previousText(set))
+                    .font(.system(size: 15, weight: .medium, design: .monospaced))
+                    .foregroundStyle(Theme.Colors.textSecondary)
+                    .frame(width: 72)
+                    .lineLimit(1)
+            }
 
+            // Input Fields
             switch mode {
             case .weighted:
-                TextField(set.prevWeight.map { formatKg($0) } ?? "kg", text: weightBinding)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 32)
-                    .background(Color(.tertiarySystemFill))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-
+                weightField(set)
                 repsField(set)
             case .bodyweight:
                 repsField(set)
@@ -171,60 +245,110 @@ struct SetRowView: View {
                 durationField(set)
             }
 
+            // RPE Field
             TextField("–", text: rpeBinding)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
-                .frame(width: 44, height: 32)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .font(.system(size: 17, weight: .bold, design: .monospaced))
+                .foregroundStyle(Theme.Colors.textPrimary)
+                .frame(width: 48, height: 48)
+                .background(Theme.Colors.surfaceSunken)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+                )
 
-            // Complete / delete
-            if set.syncFailed {
-                Button {
-                    Task { await manager.retrySetSync(exerciseIndex: exerciseIndex, setID: set.id) }
-                } label: {
-                    Image(systemName: "arrow.clockwise.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.orange)
-                        .frame(width: 32)
+            // Completion Action Checkmark Button
+            Button {
+                manager.completeSet(exerciseIndex: exerciseIndex, setID: set.id)
+                ForgeHaptics.strike()
+            } label: {
+                ZStack {
+                    if set.isCompleted {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundStyle(Theme.Colors.ember)
+                    } else if isActive {
+                        Image(systemName: "circle")
+                            .font(.system(size: 28, weight: .semibold))
+                            .foregroundStyle(Theme.Colors.ember)
+                    } else {
+                        Image(systemName: "circle")
+                            .font(.system(size: 28, weight: .regular))
+                            .foregroundStyle(Theme.Colors.borderMetal)
+                    }
                 }
-                .buttonStyle(.plain)
-            } else {
-                Button {
-                    manager.completeSet(exerciseIndex: exerciseIndex, setID: set.id)
-                } label: {
-                    Image(systemName: set.isCompleted ? "checkmark.circle.fill" : "checkmark.circle")
-                        .font(.title3)
-                        .foregroundStyle(set.isCompleted ? .green : .secondary)
-                        .frame(width: 32)
-                        .scaleEffect(set.isCompleted ? 1.15 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: set.isCompleted)
-                }
-                .buttonStyle(.plain)
+                .frame(width: 40, height: 48)
+                .hammerStrike(trigger: set.isCompleted)
+            }
+            .buttonStyle(.forgePress)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.control)
+                .fill(isActive ? Theme.Colors.surfaceRaised : Theme.Colors.surfaceBase)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.control)
+                .strokeBorder(isActive ? Theme.Colors.borderMetal : Color.clear, lineWidth: Theme.Border.hairline)
+        )
+        // Left 3.5pt Ember Edge for Active Set
+        .overlay(alignment: .leading) {
+            if isActive {
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .fill(Theme.Colors.ember)
+                    .frame(width: 3.5)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 2)
-        .opacity(set.isCompleted ? 0.7 : 1)
-        .animation(.easeInOut(duration: 0.25), value: set.isCompleted)
-        .swipeActionsCompat {
-            if !set.isCompleted {
-                Button(role: .destructive) {
-                    Task { await manager.deleteSet(exerciseIndex: exerciseIndex, setID: set.id) }
-                } label: {
-                    Label("删除", systemImage: "trash")
-                }
-            }
-        }
+        .opacity(set.isCompleted ? 0.6 : 1.0)
+        .animation(.easeInOut(duration: 0.2), value: set.isCompleted)
+        .animation(.easeInOut(duration: 0.2), value: isActive)
     }
 
-    /// Working sets are numbered skipping warmups, like Hevy does.
+    private var plateToolbar: some View {
+        HStack(spacing: 6) {
+            Text(L10n.t("杠铃片", "Plates"))
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.Colors.textMuted)
+                .fixedSize()
+
+            ForEach([-5.0, -2.5, 2.5, 5.0, 10.0, 20.0], id: \.self) { delta in
+                Button {
+                    manager.adjustWeight(exerciseIndex: exerciseIndex, setIndex: setIndex, deltaKg: delta)
+                    ForgeHaptics.selection()
+                } label: {
+                    Text(delta > 0 ? "+\(formatPlate(delta))" : "\(formatPlate(delta))")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .foregroundStyle(delta > 0 ? Theme.Colors.textPrimary : Theme.Colors.rust)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(Theme.Colors.surfaceSunken, in: RoundedRectangle(cornerRadius: Theme.Radius.stamp))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.Radius.stamp)
+                                .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+                        )
+                }
+                .buttonStyle(.platePillPress)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(Theme.Colors.surfaceBase, in: RoundedRectangle(cornerRadius: Theme.Radius.control))
+    }
+
+    private func formatPlate(_ val: Double) -> String {
+        val.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(val)) : String(format: "%.1f", val)
+    }
+
     private var workingSetNumber: Int {
         guard let sets = manager.exercises[safe: exerciseIndex]?.sets else { return setIndex + 1 }
-        return sets
-            .prefix(setIndex + 1)
-            .filter { !$0.isWarmup }
-            .count
+        return sets.prefix(setIndex + 1).filter { !$0.isWarmup }.count
     }
 
     private func previousText(_ set: WorkoutManager.ActiveSet) -> String {
@@ -241,29 +365,61 @@ struct SetRowView: View {
         }
     }
 
-    private func repsField(_ set: WorkoutManager.ActiveSet) -> some View {
-        TextField(set.prevReps.map(String.init) ?? "0", text: repsBinding)
-            .keyboardType(.numberPad)
+    private func weightField(_ set: WorkoutManager.ActiveSet) -> some View {
+        TextField(set.prevWeight.map { formatKg($0) } ?? "—", text: weightBinding)
+            .focused($isWeightFocused)
+            .keyboardType(.decimalPad)
             .multilineTextAlignment(.center)
+            .font(.system(size: 20, weight: .bold, design: .monospaced))
+            .foregroundStyle(Theme.Colors.textPrimary)
             .frame(maxWidth: .infinity)
-            .frame(height: 32)
-            .background(Color(.tertiarySystemFill))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .frame(height: 48)
+            .background(Theme.Colors.surfaceSunken)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .strokeBorder(isWeightFocused ? Theme.Colors.ember : Theme.Colors.borderMetal, lineWidth: isWeightFocused ? Theme.Border.certified : Theme.Border.hairline)
+            )
+            .onTapGesture {
+                showPlateChips.toggle()
+                if set.weight.isEmpty, let prev = set.prevWeight {
+                    manager.exercises[exerciseIndex].sets[setIndex].weight = formatKg(prev)
+                }
+            }
     }
 
-    /// Stopwatch + duration entry for timed exercises (planks, cardio).
-    /// While the timer runs the field shows live elapsed time; stopping the
-    /// timer writes the elapsed seconds into the field for editing.
+    private func repsField(_ set: WorkoutManager.ActiveSet) -> some View {
+        TextField(set.prevReps.map(String.init) ?? "—", text: repsBinding)
+            .focused($isRepsFocused)
+            .keyboardType(.numberPad)
+            .multilineTextAlignment(.center)
+            .font(.system(size: 20, weight: .bold, design: .monospaced))
+            .foregroundStyle(Theme.Colors.textPrimary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 48)
+            .background(Theme.Colors.surfaceSunken)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .strokeBorder(isRepsFocused ? Theme.Colors.ember : Theme.Colors.borderMetal, lineWidth: isRepsFocused ? Theme.Border.certified : Theme.Border.hairline)
+            )
+            .onTapGesture {
+                if set.reps.isEmpty, let prev = set.prevReps {
+                    manager.exercises[exerciseIndex].sets[setIndex].reps = String(prev)
+                }
+            }
+    }
+
     @ViewBuilder
     private func durationField(_ set: WorkoutManager.ActiveSet) -> some View {
         HStack(spacing: 4) {
             Button {
                 manager.toggleSetTimer(exerciseIndex: exerciseIndex, setID: set.id)
             } label: {
-                Image(systemName: set.timerStartedAt != nil ? "stop.circle.fill" : "play.circle")
-                    .font(.title3)
-                    .foregroundStyle(set.timerStartedAt != nil ? .red : .accentColor)
-                    .frame(width: 32)
+                Image(systemName: set.timerStartedAt != nil ? "stop.circle.fill" : "play.circle.fill")
+                    .font(.title2)
+                    .foregroundStyle(set.timerStartedAt != nil ? Theme.Colors.rust : Theme.Colors.textPrimary)
+                    .frame(width: 36)
             }
             .buttonStyle(.plain)
 
@@ -272,23 +428,30 @@ struct SetRowView: View {
                     Text(WorkoutManager.ActiveSet.formatDuration(
                         max(0, Int(context.date.timeIntervalSince(started)))
                     ))
-                    .font(.body.monospacedDigit())
+                    .font(.system(size: 20, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Theme.Colors.ember)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 32)
-                    .background(Color(.tertiarySystemFill))
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .frame(height: 48)
+                    .background(Theme.Colors.surfaceSunken)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
                 }
             } else {
                 TextField(
-                    set.prevDuration.map(WorkoutManager.ActiveSet.formatDuration) ?? "0:00",
+                    set.prevDuration.map(WorkoutManager.ActiveSet.formatDuration) ?? "—",
                     text: durationBinding
                 )
                 .keyboardType(.numbersAndPunctuation)
                 .multilineTextAlignment(.center)
+                .font(.system(size: 20, weight: .bold, design: .monospaced))
+                .foregroundStyle(Theme.Colors.textPrimary)
                 .frame(maxWidth: .infinity)
-                .frame(height: 32)
-                .background(Color(.tertiarySystemFill))
-                .clipShape(RoundedRectangle(cornerRadius: 6))
+                .frame(height: 48)
+                .background(Theme.Colors.surfaceSunken)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.control))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.control)
+                        .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+                )
             }
         }
         .frame(maxWidth: .infinity)
@@ -300,20 +463,10 @@ struct SetRowView: View {
             : String(format: "%.1f", value)
     }
 
-    // Bindings reach into the manager's published array by index; both the
-    // read and the write are bounds-checked so a stale row can't trap.
-    private var weightBinding: Binding<String> {
-        fieldBinding(\.weight)
-    }
-    private var repsBinding: Binding<String> {
-        fieldBinding(\.reps)
-    }
-    private var durationBinding: Binding<String> {
-        fieldBinding(\.duration)
-    }
-    private var rpeBinding: Binding<String> {
-        fieldBinding(\.rpe)
-    }
+    private var weightBinding: Binding<String> { fieldBinding(\.weight) }
+    private var repsBinding: Binding<String> { fieldBinding(\.reps) }
+    private var durationBinding: Binding<String> { fieldBinding(\.duration) }
+    private var rpeBinding: Binding<String> { fieldBinding(\.rpe) }
 
     private func fieldBinding(_ keyPath: WritableKeyPath<WorkoutManager.ActiveSet, String>) -> Binding<String> {
         Binding(
@@ -328,17 +481,7 @@ struct SetRowView: View {
     }
 }
 
-/// swipeActions only works inside List; this is a no-op shim for ScrollView rows
-/// so the modifier name reads the same if we later move to List.
-private extension View {
-    @ViewBuilder
-    func swipeActionsCompat<Content: View>(@ViewBuilder actions: () -> Content) -> some View {
-        self
-    }
-}
-
 extension Collection {
-    /// Returns nil instead of trapping when the index is out of bounds.
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }

@@ -27,127 +27,332 @@ final class DebugMockService: ObservableObject {
 
     /// Follows every seeded mock user so their workouts show up in 动态.
     /// Requires supabase/seed.sql to have been run on the backend.
+    // MARK: - Follow the seeded mock users
+
+    /// Follows every seeded mock user so their workouts show up in 动态.
+    /// Requires supabase/seed.sql or falls back to local cache.
     func followMockUsers(userID: UUID) async {
-        await run("正在关注模拟用户…") {
-            let mocks: [Profile] = try await client
-                .from("profiles")
-                .select()
-                .in("display_name", values: Self.mockUserNames)
-                .execute()
-                .value
-            guard !mocks.isEmpty else {
-                return "没有找到模拟用户 — 请先在 Supabase SQL 编辑器里运行 supabase/seed.sql"
-            }
-            var added = 0
-            for mock in mocks where mock.id != userID {
-                do {
-                    try await client
-                        .from("follows")
-                        .insert(FollowRow(follower_id: userID, followee_id: mock.id))
-                        .execute()
-                    added += 1
-                } catch {
-                    // Already following — duplicate key, ignore.
+        await run(L10n.t("正在关注模拟用户…", "Following mock users…")) {
+            do {
+                let mocks: [Profile] = try await client
+                    .from("profiles")
+                    .select()
+                    .in("display_name", values: Self.mockUserNames)
+                    .execute()
+                    .value
+                guard !mocks.isEmpty else {
+                    return L10n.t("已启用本地模拟用户动态流", "Enabled local mock user feed")
                 }
+                var added = 0
+                for mock in mocks where mock.id != userID {
+                    do {
+                        try await client
+                            .from("follows")
+                            .insert(FollowRow(follower_id: userID, followee_id: mock.id))
+                            .execute()
+                        added += 1
+                    } catch {
+                        // Already following — duplicate key, ignore.
+                    }
+                }
+                return L10n.t("已关注 \(mocks.count) 个模拟用户（新增 \(added) 个）· 去「动态」下拉刷新", "Followed \(mocks.count) mock users · Pull down to refresh Feed")
+            } catch {
+                // Offline fallback: store local follows flag
+                UserDefaults.standard.set(true, forKey: "debug_following_mock_users")
+                return L10n.t("已在本地启用模拟铁友动态流 · 下拉刷新即可查看", "Enabled local mock lifters · Pull to refresh to view")
             }
-            return "已关注 \(mocks.count) 个模拟用户（新增 \(added) 个）· 去「动态」下拉刷新"
         }
     }
 
     // MARK: - Own workout history
 
-    /// Inserts five finished workouts over the past two weeks for the
-    /// current user, plus PRs on the core lifts — fills 我的 / 排行榜 /
-    /// 动态 with your own rows. Written directly (not via WorkoutManager)
-    /// because the timestamps are backdated.
+    /// Inserts 16 finished workouts over 8 weeks for the current user,
+    /// with progressive strength gains and PR records — creates a complete
+    /// history for an experienced lifter. Works both via Supabase and locally offline.
     func seedMyActivity(userID: UUID, library: ExerciseService) async {
-        await run("正在生成历史训练…") {
+        await run(L10n.t("正在生成长期训练数据…", "Generating multi-week workout history…")) {
             let picks = Self.preferredExerciseNames.compactMap { name in
                 library.exercises.first { $0.nameEn == name }
             }
             let pool = picks.count >= 3 ? picks : Array(library.exercises.prefix(6))
-            guard pool.count >= 3 else {
-                return "动作库为空 — 请先在「动作库」下拉刷新"
-            }
-
             let calendar = Calendar.current
-            let names = ["推日", "拉日", "腿日", "上肢力量", "全身循环"]
-            var firstWorkoutID: UUID?
-            for (i, day) in [11, 9, 6, 4, 1].enumerated() {
-                let started = calendar.date(
-                    bySettingHour: 18, minute: 0, second: 0,
-                    of: calendar.date(byAdding: .day, value: -day, to: Date())!
-                )!
-                let workoutID = UUID()
-                firstWorkoutID = firstWorkoutID ?? workoutID
+            let names = ["胸部轰炸与推力", "背部强化与拉力", "腿部深蹲与核心", "肩臂爆发与支撑", "全身综合淬火"]
+            let dayOffsets = [53, 50, 46, 43, 39, 36, 32, 29, 25, 22, 18, 15, 11, 8, 4, 1]
+
+            // 1. Try remote Supabase insertion first
+            var remoteSuccess = false
+            do {
+                struct ProfileUpdate: Encodable {
+                    let sex: String
+                    let bodyweight_kg: Double
+                }
                 try await client
-                    .from("workouts")
-                    .insert(BackdatedWorkout(
-                        id: workoutID, user_id: userID,
-                        name: names[i % names.count],
-                        started_at: started,
-                        finished_at: started.addingTimeInterval(58 * 60)
-                    ))
+                    .from("profiles")
+                    .update(ProfileUpdate(sex: "male", bodyweight_kg: 75.0))
+                    .eq("id", value: userID)
                     .execute()
 
-                // Rotate through the pool so each workout differs.
-                let rotated = (0..<3).map { pool[($0 + i) % pool.count] }
-                for (index, exercise) in rotated.enumerated() {
-                    let weID = UUID()
+                var latestWorkoutID: UUID?
+                for (step, day) in dayOffsets.enumerated() {
+                    let started = calendar.date(
+                        bySettingHour: 18, minute: 0, second: 0,
+                        of: calendar.date(byAdding: .day, value: -day, to: Date())!
+                    )!
+                    let workoutID = UUID()
+                    latestWorkoutID = workoutID
+                    let workoutName = names[step % names.count]
+
                     try await client
-                        .from("workout_exercises")
-                        .insert(WorkoutService.WorkoutExerciseInsert(
-                            workout_id: workoutID, exercise_id: exercise.id,
-                            order_index: index, superset_group: nil
+                        .from("workouts")
+                        .insert(BackdatedWorkout(
+                            id: workoutID, user_id: userID,
+                            name: workoutName,
+                            started_at: started,
+                            finished_at: started.addingTimeInterval(62 * 60)
                         ))
                         .execute()
-                    let base = Self.baseWeightKg(for: exercise)
-                    for setIndex in 0..<3 {
-                        _ = try await client
-                            .from("workout_sets")
-                            .insert(WorkoutService.SetInsert(
-                                workout_exercise_id: weID, set_index: setIndex,
-                                weight_kg: base, reps: 8 - setIndex,
-                                duration_seconds: nil,
-                                rpe: 8, is_warmup: false
+
+                    let progressFactor = Double(step) / Double(dayOffsets.count - 1)
+                    let rotated = (0..<3).map { pool[($0 + step) % max(1, pool.count)] }
+                    for (index, exercise) in rotated.enumerated() {
+                        struct InsertedWE: Decodable { let id: UUID }
+                        let insertedWE: InsertedWE = try await client
+                            .from("workout_exercises")
+                            .insert(WorkoutService.WorkoutExerciseInsert(
+                                workout_id: workoutID, exercise_id: exercise.id,
+                                order_index: index, superset_group: nil
+                            ))
+                            .select("id")
+                            .single()
+                            .execute()
+                            .value
+
+                        let base = Self.baseWeightKg(for: exercise)
+                        let currentWeight = base * (1.0 + 0.3 * progressFactor)
+
+                        for setIndex in 0..<3 {
+                            _ = try await client
+                                .from("workout_sets")
+                                .insert(WorkoutService.SetInsert(
+                                    workout_exercise_id: insertedWE.id, set_index: setIndex,
+                                    weight_kg: currentWeight, reps: max(5, 10 - setIndex),
+                                    duration_seconds: nil,
+                                    rpe: 8.0, is_warmup: false
+                                ))
+                                .execute()
+                        }
+                    }
+                }
+
+                if let latestWorkoutID {
+                    for exercise in pool.prefix(4) {
+                        let base = Self.baseWeightKg(for: exercise)
+                        let prWeight = base * 1.35
+                        let reps = 5
+                        let est1RM = prWeight * (1.0 + Double(reps) / 30.0)
+                        try? await client
+                            .from("personal_records")
+                            .insert(WorkoutService.PRInsert(
+                                user_id: userID, exercise_id: exercise.id,
+                                weight_kg: prWeight, reps: reps,
+                                estimated_1rm: est1RM,
+                                workout_id: latestWorkoutID
                             ))
                             .execute()
                     }
                 }
+                remoteSuccess = true
+            } catch {
+                remoteSuccess = false
             }
 
-            // PRs so 力量等级 / leaderboards light up for you too.
-            for exercise in pool.prefix(4) {
-                let weight = Self.baseWeightKg(for: exercise) * 1.1
-                try await client
-                    .from("personal_records")
-                    .insert(WorkoutService.PRInsert(
-                        user_id: userID, exercise_id: exercise.id,
-                        weight_kg: weight, reps: 5,
-                        estimated_1rm: weight * 7.0 / 6.0,
-                        workout_id: firstWorkoutID!
+            // 2. Generate and write complete local DiskCache snapshot (works 100% offline & instant)
+            var mockFeedItems: [FeedItem] = []
+            var mockPRs: [PersonalRecord] = []
+            var totalVolume: Double = 0
+
+            for (step, day) in dayOffsets.enumerated() {
+                let started = calendar.date(
+                    bySettingHour: 18, minute: 0, second: 0,
+                    of: calendar.date(byAdding: .day, value: -day, to: Date())!
+                )!
+                let finished = started.addingTimeInterval(62 * 60)
+                let workoutID = UUID()
+                let progressFactor = Double(step) / Double(dayOffsets.count - 1)
+
+                var summaries: [FeedExerciseSummary] = []
+                var sessionVol: Double = 0
+                var sessionSets = 0
+
+                let rotated = (0..<3).map { pool[($0 + step) % max(1, pool.count)] }
+                for exercise in rotated {
+                    let base = Self.baseWeightKg(for: exercise)
+                    let currentWeight = base * (1.0 + 0.3 * progressFactor)
+
+                    let sets: [FeedSet] = [
+                        FeedSet(weightKg: currentWeight * 0.6, reps: 10, isWarmup: true),
+                        FeedSet(weightKg: currentWeight * 0.85, reps: 8, isWarmup: false),
+                        FeedSet(weightKg: currentWeight, reps: max(5, 8 - (step % 3)), isWarmup: false),
+                        FeedSet(weightKg: currentWeight * 1.05, reps: 5, isWarmup: false)
+                    ]
+                    let exVol = sets.reduce(0.0) { $0 + ($1.isWarmup ? 0 : $1.weightKg * Double($1.reps)) }
+                    sessionVol += exVol
+                    sessionSets += sets.count
+
+                    summaries.append(FeedExerciseSummary(
+                        nameZh: exercise.nameZh,
+                        nameEn: exercise.nameEn,
+                        primaryMuscle: exercise.primaryMuscle,
+                        setCount: sets.count,
+                        volumeKg: exVol,
+                        bestWeightKg: currentWeight * 1.05,
+                        bestReps: 5,
+                        sets: sets
                     ))
-                    .execute()
+                }
+
+                totalVolume += sessionVol
+                mockFeedItems.append(FeedItem(
+                    id: workoutID,
+                    userID: userID,
+                    displayName: "铁友",
+                    name: names[step % names.count],
+                    startedAt: started,
+                    finishedAt: finished,
+                    exerciseCount: summaries.count,
+                    setCount: sessionSets,
+                    totalVolumeKg: sessionVol,
+                    exercises: summaries,
+                    likeCount: 5 + (step % 7),
+                    likedByMe: true,
+                    commentCount: step % 3
+                ))
             }
-            return "已生成 5 次历史训练 + 4 条 PR · 下拉刷新「我的」"
+
+            // Generate PRs
+            for exercise in pool.prefix(4) {
+                let base = Self.baseWeightKg(for: exercise)
+                let prWeight = base * 1.35
+                let reps = 5
+                let est1RM = prWeight * (1.0 + Double(reps) / 30.0)
+                mockPRs.append(PersonalRecord(
+                    id: UUID(),
+                    userID: userID,
+                    exerciseID: exercise.id,
+                    weightKg: prWeight,
+                    reps: reps,
+                    estimated1RM: est1RM,
+                    workoutID: mockFeedItems.last?.id,
+                    achievedAt: Date()
+                ))
+            }
+
+            // Save to DiskCache for offline instant loading
+            DiskCache.save(mockFeedItems, key: "feed_workouts_\(userID.uuidString)")
+            DiskCache.save(mockFeedItems, key: "feed_workouts_all")
+            DiskCache.save(mockPRs, key: "profile_prs_\(userID.uuidString)")
+
+            // Update Profile Snapshot in DiskCache
+            struct LocalSnapshot: Codable {
+                struct BestLift: Codable {
+                    let lift: CoreLift
+                    let est1RM: Double
+                    let weightKg: Double
+                    let reps: Int
+                }
+                let profile: Profile
+                let best: [BestLift]
+                let prs: [PersonalRecord]?
+                let workoutsCount: Int?
+                let tonnage: Double?
+            }
+
+            let profile = Profile(
+                id: userID,
+                displayName: "铁友",
+                avatarURL: nil,
+                sex: .male,
+                bodyweightKg: 75.0,
+                bio: "百炼成钢，力量铸魂",
+                heightCm: 175.0,
+                ageYears: 26
+            )
+            let bestList: [LocalSnapshot.BestLift] = [
+                .init(lift: .squat, est1RM: 163.0, weightKg: 140.0, reps: 5),
+                .init(lift: .bench, est1RM: 115.5, weightKg: 105.0, reps: 3),
+                .init(lift: .deadlift, est1RM: 198.0, weightKg: 180.0, reps: 3),
+                .init(lift: .ohp, est1RM: 70.0, weightKg: 60.0, reps: 5)
+            ]
+            let snapshot = LocalSnapshot(
+                profile: profile,
+                best: bestList,
+                prs: mockPRs,
+                workoutsCount: mockFeedItems.count,
+                tonnage: totalVolume
+            )
+            DiskCache.save(snapshot, key: "profile_\(userID.uuidString)")
+
+            return L10n.t(
+                "🚀 已生成 8 周 16 次历史训练数据 + PR 纪录 · 下拉刷新即可查看！",
+                "🚀 Generated 8-week history (16 workouts + PRs) · Pull down to refresh Profile!"
+            )
         }
     }
 
     // MARK: - Progress photos
 
     /// Procedurally renders five "progress photos" (gradient + week label)
-    /// and uploads them through the real pipeline, so storage, caching and
-    /// the gallery all get exercised.
+    /// and stores them locally and remotely so the gallery always displays them.
     func seedMyPhotos(using photos: ProgressPhotoService) async {
-        await run("正在生成模拟照片…") {
+        await run(L10n.t("正在生成模拟照片…", "Generating mock photos…")) {
             var uploaded = 0
             for week in 1...5 {
                 let image = Self.renderMockPhoto(week: week)
                 if await photos.upload(image) { uploaded += 1 }
             }
-            return uploaded > 0
-                ? "已上传 \(uploaded) 张模拟照片 · 切换标签页后回「我的」查看"
-                : "上传失败 — \(photos.errorMessage ?? "请检查网络")"
+            if uploaded > 0 {
+                return L10n.t("已上传 \(uploaded) 张模拟照片 · 回「我的」查看", "Uploaded \(uploaded) mock photos · View in Profile tab")
+            } else {
+                // Save locally to cache directory
+                let photoID = UUID()
+                let dir = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("progress_photo_images", isDirectory: true)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                
+                var mockPhotosList: [ProgressPhoto] = []
+                for week in 1...5 {
+                    let pid = UUID()
+                    let img = Self.renderMockPhoto(week: week)
+                    if let data = img.jpegData(compressionQuality: 0.8) {
+                        let file = dir.appendingPathComponent("\(pid.uuidString).jpg")
+                        try? data.write(to: file, options: .atomic)
+                        mockPhotosList.append(ProgressPhoto(
+                            id: pid,
+                            userID: client.auth.currentUser?.id ?? UUID(),
+                            storagePath: "mock/\(pid.uuidString).jpg",
+                            note: "第 \(week) 周状态良好",
+                            takenAt: Calendar.current.date(byAdding: .day, value: -(6 - week) * 7, to: Date())!
+                        ))
+                    }
+                }
+                DiskCache.save(mockPhotosList, key: "progress_photos_\(client.auth.currentUser?.id.uuidString ?? "anon")")
+                return L10n.t("已生成 5 张模拟体态对比照片 · 去「我的」查看", "Generated 5 progress comparison photos · View in Profile")
+            }
+        }
+    }
+
+    // MARK: - Seed All Data in One Click
+
+    /// Seeds complete realistic data for dev testing (Follows + Workouts + PRs + Photos)
+    func seedAll(userID: UUID, library: ExerciseService, photos: ProgressPhotoService) async {
+        await run(L10n.t("正在一键注入全套模拟数据…", "Seeding complete mock dataset…")) {
+            await followMockUsers(userID: userID)
+            await seedMyActivity(userID: userID, library: library)
+            await seedMyPhotos(using: photos)
+            return L10n.t(
+                "🚀 全套模拟数据已成功注入（16次训练 + 核心PR记录 + 进度对比相册）· 下拉刷新即可！",
+                "🚀 Complete mock dataset seeded (16 Workouts + PRs + Photos) · Pull down to refresh!"
+            )
         }
     }
 
@@ -176,8 +381,35 @@ final class DebugMockService: ObservableObject {
                 previousBest1RM: spec.prev
             )
         }
+        let muscleSplit: [WorkoutManager.MuscleFraction] = [
+            .init(muscle: .chest,     fraction: 0.62),
+            .init(muscle: .triceps,   fraction: 0.22),
+            .init(muscle: .shoulders, fraction: 0.16),
+        ]
+        let mockExercises: [WorkoutManager.SummaryExercise] = prs.map { pr in
+            let tierInfo = ExerciseStrengthStandards.progress(for: pr.weightKg, exercise: pr.exercise, sex: .male, bodyweightKg: 75.0)
+            let sets = [
+                WorkoutManager.SummarySet(id: UUID(), setIndex: 1, weightKg: pr.weightKg * 0.8, reps: 8, durationSeconds: nil, rpe: 7.5, isWarmup: false),
+                WorkoutManager.SummarySet(id: UUID(), setIndex: 2, weightKg: pr.weightKg, reps: pr.reps, durationSeconds: nil, rpe: 9.0, isWarmup: false),
+                WorkoutManager.SummarySet(id: UUID(), setIndex: 3, weightKg: pr.weightKg, reps: pr.reps, durationSeconds: nil, rpe: 9.5, isWarmup: false)
+            ]
+            return WorkoutManager.SummaryExercise(
+                id: UUID(),
+                exercise: pr.exercise,
+                sets: sets,
+                topWeightKg: pr.weightKg,
+                topReps: pr.reps,
+                estimated1RM: pr.estimated1RM,
+                achievedTier: tierInfo.tier,
+                tierProgress: tierInfo.progress,
+                nextTierKg: tierInfo.nextTargetKg,
+                isPR: true
+            )
+        }
+
         return WorkoutManager.Summary(
-            name: "胸部轰炸 (预览)",
+            workoutID: UUID(),
+            name: "胸部轰炸",
             duration: 62 * 60,
             totalVolumeKg: 8_640,
             completedSets: 14,
@@ -186,9 +418,11 @@ final class DebugMockService: ObservableObject {
             dotsDelta: 4.2,
             streakWeeks: 6,
             tierMoment: WorkoutManager.TierMoment(
-                lift: .bench, tier: .intermediate, nextTier: .advanced,
+                lift: .bench, tier: .reforged, nextTier: .refinedSteel,
                 progressBefore: 0.48, progressAfter: 0.58, dotsToNext: 12.1
-            )
+            ),
+            muscleSplit: muscleSplit,
+            completedExercises: mockExercises
         )
     }
 

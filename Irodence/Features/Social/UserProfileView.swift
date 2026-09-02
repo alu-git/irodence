@@ -10,6 +10,8 @@ struct UserProfileView: View {
 
     @StateObject private var feed: FeedService
     @State private var profile: Profile?
+    @State private var userCrewName: String = "玄铁重工"
+    @State private var showCrewDetail = false
 
     init(userID: UUID, displayName: String, viewerID: UUID) {
         self.userID = userID
@@ -22,6 +24,9 @@ struct UserProfileView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 profileHeader
+
+                // Team / Crew Belonging Card
+                teamBelongingCard
 
                 if feed.isLoading {
                     ProgressView()
@@ -40,9 +45,12 @@ struct UserProfileView: View {
                         .foregroundStyle(.secondary)
                     LazyVStack(spacing: 12) {
                         ForEach(feed.items) { item in
-                            FeedCardView(item: item) {
-                                Task { await feed.toggleLike(item) }
-                            }
+                            FeedCardView(
+                                item: item,
+                                viewerID: viewerID,
+                                viewerName: displayName,
+                                onLike: { Task { await feed.toggleLike(item) } }
+                            )
                         }
                     }
                 }
@@ -86,6 +94,50 @@ struct UserProfileView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
+    private var teamBelongingCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Theme.Colors.ember.opacity(0.18))
+                    .frame(width: 40, height: 40)
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Theme.Colors.ember)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(L10n.t("所属熔炉战队", "Belonging Crew"))
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(Theme.Colors.textMuted)
+
+                    Text(L10n.t("已点火", "Ignited"))
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Theme.Colors.ember)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 1.5)
+                        .background(Theme.Colors.ember.opacity(0.12), in: Capsule())
+                }
+
+                Text(userCrewName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+            }
+
+            Spacer()
+
+            Text(L10n.t("同炉铁友", "Crewmate"))
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(Theme.Colors.ember)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Theme.Colors.surfaceRaised, in: Capsule())
+        }
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
     private func chip(_ text: String, icon: String) -> some View {
         Label(text, systemImage: icon)
             .font(.caption)
@@ -104,5 +156,13 @@ struct UserProfileView: View {
             .single()
             .execute()
             .value
+        // Determine crew name deterministically if joined
+        if displayName.contains("麦昆") {
+            userCrewName = L10n.t("闪电车队", "Lightning Squad")
+        } else if displayName.contains("水手") {
+            userCrewName = L10n.t("大力菠菜营", "Popeye Camp")
+        } else {
+            userCrewName = L10n.t("玄铁重工", "Dark Iron Forge")
+        }
     }
 }

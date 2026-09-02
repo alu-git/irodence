@@ -28,7 +28,7 @@ struct SocialView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                Picker("视图", selection: $tab) {
+                Picker(L10n.t("视图", "View"), selection: $tab) {
                     ForEach(SocialTab.allCases, id: \.self) {
                         Text($0.displayName).tag($0)
                     }
@@ -52,7 +52,7 @@ struct SocialView: View {
                 // in the middle of the screen.
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .navigationTitle("社交")
+            .navigationTitle(L10n.t("社交", "Social"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {

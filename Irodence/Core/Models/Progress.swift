@@ -15,12 +15,12 @@ struct BodyweightLog: Identifiable, Codable, Hashable {
     }
 }
 
-/// One point on the per-exercise est-1RM history chart: the best Epley
-/// estimate of that day.
-struct StrengthHistoryPoint: Identifiable, Hashable {
+/// One point on the per-exercise history chart: best est-1RM and max weight of that day.
+struct StrengthHistoryPoint: Identifiable, Codable, Hashable {
     var id: Date { date }
     let date: Date
     let estimated1RM: Double
+    let maxWeight: Double
 }
 
 /// Row in `public.progress_photos`. The image itself lives in the private

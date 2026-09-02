@@ -10,13 +10,7 @@ struct RootView: View {
         Group {
             switch authService.state {
             case .loading:
-                VStack(spacing: 24) {
-                    Image("AppLogo")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 140, height: 140)
-                    ProgressView()
-                }
+                ForgeLoadingScreen(message: L10n.t("初始化熔炉…", "Initializing Forge…"))
             case .signedOut:
                 LoginView()
             case .signedIn(let userID):
@@ -28,11 +22,6 @@ struct RootView: View {
         // In-app language + text-size overrides (see Profile → 设置)
         .environment(\.locale, (AppLanguage(rawValue: language) ?? .zh).locale)
         .dynamicTypeSize((TextSizePreference(rawValue: textSize) ?? .standard).dynamicTypeSize)
-        // Bilingual model strings (exercise names, muscle groups, tiers…)
-        // read UserDefaults statically via L10n.t, so views rendering them
-        // hold no locale dependency and would otherwise keep showing the
-        // previous language after a switch. Rebuild the tree on change.
-        .id(language)
     }
 }
 

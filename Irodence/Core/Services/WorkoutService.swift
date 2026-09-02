@@ -38,11 +38,21 @@ final class WorkoutService: Sendable {
             .execute()
     }
 
-    /// Hard-deletes a discarded (unfinished) workout; sets cascade away.
+    /// Hard-deletes a workout; sets cascade away.
     func discardWorkout(_ workoutID: UUID) async throws {
         try await client
             .from("workouts")
             .delete()
+            .eq("id", value: workoutID)
+            .execute()
+    }
+
+    /// Updates the display name of a finished workout.
+    func updateWorkoutName(_ workoutID: UUID, name: String) async throws {
+        struct NameUpdate: Encodable { let name: String }
+        try await client
+            .from("workouts")
+            .update(NameUpdate(name: name))
             .eq("id", value: workoutID)
             .execute()
     }

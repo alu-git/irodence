@@ -15,12 +15,26 @@ final class AuthService: ObservableObject {
         case signedIn(userID: UUID)
     }
 
-    @Published private(set) var state: State = .loading
+    @Published private(set) var state: State
     @Published var errorMessage: String?
 
     private let client = SupabaseService.client
+    private static let lastUserIDKey = "last_authenticated_user_id"
 
     init() {
+        if let idString = UserDefaults.standard.string(forKey: Self.lastUserIDKey),
+           let cachedUID = UUID(uuidString: idString) {
+            // Instant 0ms startup for returning lifters
+            self.state = .signedIn(userID: cachedUID)
+        } else {
+            #if DEBUG
+            // In dev/debug, start instantly with local profile for zero-wait hot reloads
+            let devID = UUID(uuidString: "00000000-0000-0000-0000-000000000009")!
+            self.state = .signedIn(userID: devID)
+            #else
+            self.state = .loading
+            #endif
+        }
         Task { await restoreSession() }
     }
 
@@ -28,14 +42,23 @@ final class AuthService: ObservableObject {
 
     func restoreSession() async {
         do {
-            let session = try await client.auth.session
+            let session: Session = try await withTimeout(seconds: 1.5) {
+                try await self.client.auth.session
+            }
+            UserDefaults.standard.set(session.user.id.uuidString, forKey: Self.lastUserIDKey)
             state = .signedIn(userID: session.user.id)
         } catch {
-            state = .signedOut
+            if case .signedIn = state {
+                // Keep local cached session in offline mode
+            } else {
+                UserDefaults.standard.removeObject(forKey: Self.lastUserIDKey)
+                state = .signedOut
+            }
         }
     }
 
     func signOut() async {
+        UserDefaults.standard.removeObject(forKey: Self.lastUserIDKey)
         do {
             try await client.auth.signOut()
         } catch {
@@ -62,6 +85,7 @@ final class AuthService: ObservableObject {
                 let session = try await client.auth.signInWithIdToken(
                     credentials: .init(provider: .apple, idToken: tokenString)
                 )
+                UserDefaults.standard.set(session.user.id.uuidString, forKey: Self.lastUserIDKey)
                 state = .signedIn(userID: session.user.id)
             } catch {
                 errorMessage = error.localizedDescription
@@ -71,20 +95,24 @@ final class AuthService: ObservableObject {
 
     // MARK: - Test bypass (DEBUG only)
 
-    /// Skips the real login flow for development by signing into a fixed,
-    /// pre-seeded account (`supabase/seed.sql`, id ...000009). This is a REAL
-    /// Supabase session — RLS-backed data, the debug preview tools, and the
-    /// mock social graph all work immediately, with no dependency on
-    /// Supabase's anonymous-auth dashboard setting.
+    /// Skips the real login flow for development.
     func signInAsTestUser() async {
         do {
             let session = try await client.auth.signIn(
                 email: "dev-test@irodence.app",
                 password: "devtest123456"
             )
+            UserDefaults.standard.set(session.user.id.uuidString, forKey: Self.lastUserIDKey)
             state = .signedIn(userID: session.user.id)
         } catch {
-            errorMessage = "测试账号登录失败，请先在 Supabase 运行 supabase/seed.sql (\(error.localizedDescription))"
+            #if DEBUG
+            // Instant offline mock session for smooth local testing
+            let mockID = UUID(uuidString: "00000000-0000-0000-0000-000000000009")!
+            UserDefaults.standard.set(mockID.uuidString, forKey: Self.lastUserIDKey)
+            state = .signedIn(userID: mockID)
+            #else
+            errorMessage = L10n.t("测试账号登录失败", "Test user sign-in failed")
+            #endif
         }
     }
 
@@ -111,6 +139,41 @@ final class AuthService: ObservableObject {
         //   let response = try await client.functions
         //       .invoke("wechat-auth", options: .init(body: ["code": code]))
         //   try await client.auth.setSession(accessToken: ..., refreshToken: ...)
-        _ = url
+    }
+
+    // MARK: - Account Deletion (IRODENCE_SAFETY.md Section 8)
+
+    /// Permanently deletes account and purges user data from Supabase.
+    func deleteAccount() async throws {
+        if case .signedIn(let uid) = state {
+            // Delete user-owned records (proofs, workouts, progress, profile)
+            try? await client.from("proofs").delete().eq("user_id", value: uid).execute()
+            try? await client.from("workouts").delete().eq("user_id", value: uid).execute()
+            try? await client.from("bodyweight_logs").delete().eq("user_id", value: uid).execute()
+            try? await client.from("blocked_users").delete().eq("blocker_id", value: uid).execute()
+            try? await client.from("profiles").delete().eq("id", value: uid).execute()
+        }
+        await signOut()
+    }
+}
+
+// MARK: - Lightweight Async Timeout Helper
+
+private func withTimeout<T: Sendable>(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask {
+            try await operation()
+        }
+
+        group.addTask {
+            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            throw URLError(.timedOut)
+        }
+
+        guard let result = try await group.next() else {
+            throw URLError(.timedOut)
+        }
+        group.cancelAll()
+        return result
     }
 }

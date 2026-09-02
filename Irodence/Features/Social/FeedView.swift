@@ -7,32 +7,41 @@ enum FeedDestination: Hashable {
 }
 
 /// 动态 feed: finished workouts from you + people you follow (Hevy-style),
-/// with likes. Data comes from the `workout_feed` view via FeedService.
+/// with likes and comments. Data comes from the `workout_feed` view via FeedService.
 struct FeedListView: View {
     @StateObject private var service: FeedService
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
 
-    init(userID: UUID) {
+    private let viewerID: UUID
+    private let viewerName: String
+
+    init(userID: UUID, displayName: String = "") {
         _service = StateObject(wrappedValue: FeedService(userID: userID))
+        self.viewerID = userID
+        self.viewerName = displayName
     }
 
     var body: some View {
         Group {
             if service.isLoading {
-                ProgressView()
+                GymLoadingView(L10n.t("加载动态中…", "Loading activity…"))
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if service.items.isEmpty {
                 ComingSoonView(
-                    title: "还没有动态",
+                    title: L10n.t("还没有动态", "No Activity Yet"),
                     systemImage: "figure.strengthtraining.traditional",
-                    subtitle: "关注好友后，他们的训练会出现在这里"
+                    subtitle: L10n.t("关注好友后，他们的训练会出现在这里", "Workouts from people you follow will appear here")
                 )
             } else {
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         ForEach(service.items) { item in
-                            FeedCardView(item: item) {
-                                Task { await service.toggleLike(item) }
-                            }
+                            FeedCardView(
+                                item: item,
+                                viewerID: viewerID,
+                                viewerName: viewerName,
+                                onLike: { Task { await service.toggleLike(item) } }
+                            )
                         }
                     }
                     .padding(.horizontal, 16)
@@ -57,10 +66,14 @@ struct FeedListView: View {
 
 /// One workout card: tappable profile header, title, stats, the first three
 /// exercises with their numbers + a mini muscle diagram, a "+N more" row,
-/// and a like button. The whole card pushes the expanded workout detail.
+/// and like + comment buttons. The whole card pushes the expanded workout detail.
 struct FeedCardView: View {
     let item: FeedItem
+    let viewerID: UUID
+    let viewerName: String
     let onLike: () -> Void
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
+    @State private var showComments = false
 
     /// Exercises previewed on the card; the rest collapse into "+N 个动作".
     private static let previewCount = 3
@@ -83,6 +96,9 @@ struct FeedCardView: View {
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
         .buttonStyle(.plain)
+        .sheet(isPresented: $showComments) {
+            CommentsSheet(item: item, viewerID: viewerID, viewerName: viewerName)
+        }
     }
 
     // MARK: - Sections
@@ -143,6 +159,7 @@ struct FeedCardView: View {
 
     private var footer: some View {
         HStack(spacing: 6) {
+            // Like button
             Button(action: onLike) {
                 HStack(spacing: 6) {
                     Image(systemName: item.likedByMe ? "heart.fill" : "heart")
@@ -156,12 +173,32 @@ struct FeedCardView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                // Comfortable touch target without inflating the card.
                 .padding(.vertical, 4)
-                .padding(.trailing, 12)
+                .padding(.trailing, 8)
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+
+            // Comment button
+            Button {
+                showComments = true
+            } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "bubble.left")
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                    if item.commentCount > 0 {
+                        Text("\(item.commentCount)")
+                            .font(.caption.monospacedDigit())
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+                .padding(.trailing, 8)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
             Spacer()
         }
     }
@@ -170,12 +207,14 @@ struct FeedCardView: View {
 /// Exercise row used on feed cards: mini muscle diagram + name + numbers.
 struct ExercisePreviewRow: View {
     let exercise: FeedExerciseSummary
+    @AppStorage(AppLanguage.storageKey) private var language = AppLanguage.zh.rawValue
 
     var body: some View {
         HStack(spacing: 10) {
             MiniMuscleDiagram(primary: exercise.muscles.primary,
                               secondary: exercise.muscles.secondary)
-                .frame(width: 26, height: 34)
+                .frame(width: 28, height: 36)
+                .clipped()
             Text(exercise.displayName)
                 .font(.subheadline)
                 .lineLimit(1)

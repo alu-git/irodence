@@ -106,6 +106,22 @@ enum MuscleGroup: String, Codable, CaseIterable {
         case .core: return L10n.t("核心", "Core")
         }
     }
+
+    /// Maps the muscle group to the anatomical muscles from open-source react-native-body-highlighter geometry.
+    var anatomicalMuscles: Set<Muscle> {
+        switch self {
+        case .chest: return [.chest]
+        case .back: return [.upperBack, .lowerBack, .trapezius]
+        case .shoulders: return [.deltoids]
+        case .quads: return [.quadriceps]
+        case .hamstrings: return [.hamstring]
+        case .glutes: return [.gluteal]
+        case .biceps: return [.biceps]
+        case .triceps: return [.triceps]
+        case .calves: return [.calves]
+        case .core: return [.abs, .obliques]
+        }
+    }
 }
 
 enum Equipment: String, Codable, CaseIterable {

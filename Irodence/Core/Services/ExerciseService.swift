@@ -30,27 +30,70 @@ final class ExerciseService: ObservableObject {
     }
 
     func reload() async {
-        isLoading = true
+        isLoading = exercises.isEmpty
         errorMessage = nil
         defer { isLoading = false }
         do {
-            exercises = try await client
-                .from("exercises")
-                .select()
-                .order("name_zh")
-                .execute()
-                .value
-            // Register core-lift IDs for tier/DOTS lookups elsewhere
-            for exercise in exercises {
-                ExerciseIDCache.shared.register(exerciseID: exercise.id, nameEn: exercise.nameEn)
+            let fetched: [Exercise] = try await withThrowingTaskGroup(of: [Exercise].self) { group in
+                group.addTask {
+                    try await self.client
+                        .from("exercises")
+                        .select()
+                        .order("name_zh")
+                        .execute()
+                        .value
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 2_500_000_000)
+                    throw URLError(.timedOut)
+                }
+                guard let result = try await group.next() else {
+                    throw URLError(.cannotParseResponse)
+                }
+                group.cancelAll()
+                return result
             }
-            Self.saveCache(exercises)
+
+            if !fetched.isEmpty {
+                self.exercises = fetched
+                for exercise in fetched {
+                    ExerciseIDCache.shared.register(exerciseID: exercise.id, nameEn: exercise.nameEn)
+                }
+                Self.saveCache(fetched)
+            }
         } catch {
-            // Keep showing cached data; only surface an error if we have nothing
             if exercises.isEmpty {
-                errorMessage = L10n.t("动作库加载失败，请检查网络", "Couldn't load the exercise library — check your connection")
+                exercises = Self.defaultExercises
+                for exercise in exercises {
+                    ExerciseIDCache.shared.register(exerciseID: exercise.id, nameEn: exercise.nameEn)
+                }
             }
         }
+    }
+
+    static var defaultExercises: [Exercise] {
+        [
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111101")!, nameEn: "Barbell Back Squat", nameZh: "杠铃后深蹲", primaryMuscle: .quads, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111102")!, nameEn: "Bench Press", nameZh: "杠铃卧推", primaryMuscle: .chest, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111103")!, nameEn: "Deadlift", nameZh: "传统硬拉", primaryMuscle: .back, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111104")!, nameEn: "Overhead Press", nameZh: "杠铃过顶推举", primaryMuscle: .shoulders, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111105")!, nameEn: "Barbell Row", nameZh: "杠铃划船", primaryMuscle: .back, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111106")!, nameEn: "Lat Pulldown", nameZh: "高位下拉", primaryMuscle: .back, equipment: .cable, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111107")!, nameEn: "Incline Dumbbell Press", nameZh: "上斜哑铃卧推", primaryMuscle: .chest, equipment: .dumbbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111108")!, nameEn: "Romanian Deadlift", nameZh: "罗马尼亚硬拉", primaryMuscle: .hamstrings, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111109")!, nameEn: "Leg Press", nameZh: "倒蹬机压腿", primaryMuscle: .quads, equipment: .machine, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111110")!, nameEn: "Dumbbell Lateral Raise", nameZh: "哑铃侧平举", primaryMuscle: .shoulders, equipment: .dumbbell, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, nameEn: "Triceps Pushdown", nameZh: "绳索三头下压", primaryMuscle: .triceps, equipment: .cable, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111112")!, nameEn: "Barbell Biceps Curl", nameZh: "杠铃二头弯举", primaryMuscle: .biceps, equipment: .barbell, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111113")!, nameEn: "Leg Curl", nameZh: "俯卧腿弯举", primaryMuscle: .hamstrings, equipment: .machine, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111114")!, nameEn: "Leg Extension", nameZh: "坐姿腿屈伸", primaryMuscle: .quads, equipment: .machine, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111115")!, nameEn: "Standing Calf Raise", nameZh: "站姿提踵", primaryMuscle: .calves, equipment: .machine, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111116")!, nameEn: "Cable Woodchopper", nameZh: "绳索伐木砍", primaryMuscle: .core, equipment: .cable, isCompound: false),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111117")!, nameEn: "Pull-up", nameZh: "引体向上", primaryMuscle: .back, equipment: .bodyweight, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111118")!, nameEn: "Dips", nameZh: "双杠臂屈伸", primaryMuscle: .triceps, equipment: .bodyweight, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111119")!, nameEn: "Hip Thrust", nameZh: "杠铃臀推", primaryMuscle: .glutes, equipment: .barbell, isCompound: true),
+            Exercise(id: UUID(uuidString: "11111111-1111-1111-1111-111111111120")!, nameEn: "Face Pull", nameZh: "绳索面拉", primaryMuscle: .shoulders, equipment: .cable, isCompound: false)
+        ]
     }
 
     // MARK: - Disk cache
