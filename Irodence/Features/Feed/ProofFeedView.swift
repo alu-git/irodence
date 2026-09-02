@@ -6,15 +6,15 @@ struct ProofFeedView: View {
     let userID: UUID
 
     enum FeedTab: Int, CaseIterable {
-        case community = 0
-        case following = 1
+        case following = 0
+        case community = 1
         case proofs = 2
         case moments = 3
 
         var title: String {
             switch self {
+            case .following: return L10n.t("好友与我", "Friends & Me")
             case .community: return L10n.t("社区广场", "Community")
-            case .following: return L10n.t("关注好友", "Following")
             case .proofs: return L10n.t("权威铁证", "Proofs")
             case .moments: return L10n.t("日常", "Daily")
             }
@@ -22,15 +22,15 @@ struct ProofFeedView: View {
 
         var icon: String {
             switch self {
-            case .community: return "globe.asia.australia.fill"
             case .following: return "person.2.fill"
+            case .community: return "globe.asia.australia.fill"
             case .proofs: return "shield.checkered"
             case .moments: return "flame.fill"
             }
         }
     }
 
-    @State private var selectedTab: FeedTab = .community
+    @State private var selectedTab: FeedTab = .following
     @StateObject private var proofService = ProofService()
     @StateObject private var challengeService = ChallengeService()
     @StateObject private var momentService = GymMomentService()
@@ -39,6 +39,7 @@ struct ProofFeedView: View {
 
     @State private var showLeaderboard = false
     @State private var showFriendSearch = false
+    @State private var showPublishSheet = false
 
     init(userID: UUID) {
         self.userID = userID
@@ -122,6 +123,16 @@ struct ProofFeedView: View {
             .sheet(isPresented: $showFriendSearch) {
                 FriendSearchView(service: socialService)
             }
+            .sheet(isPresented: $showPublishSheet) {
+                PublishMomentSheet(
+                    userID: userID,
+                    userDisplayName: L10n.t("我", "Me"),
+                    userCrewName: L10n.t("玄铁重工", "Dark Iron"),
+                    onPublished: {
+                        showPublishSheet = false
+                    }
+                )
+            }
         }
     }
 
@@ -187,16 +198,78 @@ struct ProofFeedView: View {
         }
     }
 
-    // 2. Following Feed (关注好友 - 仅关注与战队好友)
+    // Quick "My Check-In / Share Status" Bar
+    private var myCheckInCard: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Theme.Colors.surfaceSunken)
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Circle().strokeBorder(Theme.Colors.ember.opacity(0.6), lineWidth: 1.5)
+                    )
+
+                Image(systemName: "flame.fill")
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundStyle(Theme.Colors.ember)
+            }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(L10n.t("我的训练动态 · 实时打卡", "My Status & Check-In"))
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundStyle(Theme.Colors.textPrimary)
+
+                Text(L10n.t("分享今日泵感与成绩，与好友共同见证", "Share your workout pump & proof with friends"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.Colors.textMuted)
+            }
+
+            Spacer()
+
+            Button {
+                showPublishSheet = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "plus")
+                        .font(.system(size: 11, weight: .bold))
+                    Text(L10n.t("发动态", "Post"))
+                        .font(.system(size: 12, weight: .bold))
+                }
+                .foregroundStyle(Theme.Colors.emberDeep)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Theme.Colors.ember, in: Capsule())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .fill(Theme.Colors.surfaceRaised)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.Radius.card)
+                .strokeBorder(Theme.Colors.borderMetal, lineWidth: Theme.Border.hairline)
+        )
+    }
+
+    // 2. Following Feed (关注好友与自身)
     private var followingFeedSection: some View {
         let friendsMoments = momentService.moments.filter {
-            $0.userID == userID || socialService.followingIDs.contains($0.userID)
+            $0.userID == userID ||
+            $0.userID == UUID(uuidString: "00000000-0000-0000-0000-000000000009")! ||
+            socialService.followingIDs.contains($0.userID)
         }
         let friendsProofs = proofService.proofs.filter {
-            $0.userID == userID || socialService.followingIDs.contains($0.userID)
+            $0.userID == userID ||
+            $0.userID == UUID(uuidString: "00000000-0000-0000-0000-000000000009")! ||
+            socialService.followingIDs.contains($0.userID)
         }
 
         return VStack(spacing: Theme.Spacing.md) {
+            myCheckInCard
+
             if friendsMoments.isEmpty && friendsProofs.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.2.slash")

@@ -99,6 +99,27 @@ final class GymMomentService: ObservableObject {
     static var defaultMoments: [GymMoment] {
         [
             GymMoment(
+                id: UUID(uuidString: "22222222-2222-2222-2222-222222222200")!,
+                userID: UUID(uuidString: "00000000-0000-0000-0000-000000000009")!,
+                userDisplayName: L10n.t("我 (铁骨淬火者)", "Me (Iron Forger)"),
+                userTierName: "铸钢",
+                userCrewName: L10n.t("玄铁重工", "Dark Iron"),
+                visibilityText: L10n.t("公开见证", "Public Proof"),
+                imageURL: nil,
+                localImageData: nil,
+                caption: L10n.t("今日淬火完成！卧推突破新纪录，力量渐入佳境，继续向精钢迈进。", "Workout completed! Broke a new bench press PR today, onward to refined steel."),
+                workoutName: "推力力量日",
+                workoutDurationText: "55m",
+                workoutVolumeText: "容量 9.8t",
+                tags: ["#新纪录PR", "#今日淬火完成"],
+                fistBumpCount: 38,
+                fistBumpedByMe: true,
+                fireCount: 76,
+                firedByMe: true,
+                commentCount: 9,
+                createdAt: Date().addingTimeInterval(-900)
+            ),
+            GymMoment(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222201")!,
                 userID: UUID(uuidString: "22222222-2222-2222-2222-222222222202")!,
                 userDisplayName: "麦昆",

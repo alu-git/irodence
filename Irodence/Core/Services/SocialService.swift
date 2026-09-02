@@ -15,8 +15,17 @@ final class SocialService: ObservableObject {
     private let client = SupabaseService.client
     let userID: UUID
 
+    static let defaultFollowedFriendIDs: Set<UUID> = [
+        UUID(uuidString: "22222222-2222-2222-2222-222222222202")!, // 麦昆
+        UUID(uuidString: "22222222-2222-2222-2222-222222222204")!, // 琳琳
+        UUID(uuidString: "22222222-2222-2222-2222-222222222206")!, // 铁馆老王
+        UUID(uuidString: "77777777-7777-7777-7777-777777777701")!, // 张铁峰
+        UUID(uuidString: "77777777-7777-7777-7777-777777777702")!  // 陈力量
+    ]
+
     init(userID: UUID) {
         self.userID = userID
+        self.followingIDs = Self.defaultFollowedFriendIDs
     }
 
     // MARK: - Follows
@@ -30,9 +39,13 @@ final class SocialService: ObservableObject {
                 .eq("follower_id", value: userID)
                 .execute()
                 .value
-            followingIDs = Set(rows.map(\.followee_id))
+            let fetched = Set(rows.map(\.followee_id))
+            followingIDs = fetched.isEmpty ? Self.defaultFollowedFriendIDs : fetched
         } catch {
-            errorMessage = "加载关注列表失败"
+            // Retain default followed friends in offline/mock mode
+            if followingIDs.isEmpty {
+                followingIDs = Self.defaultFollowedFriendIDs
+            }
         }
     }
 
