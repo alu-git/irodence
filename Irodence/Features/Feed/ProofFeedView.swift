@@ -9,14 +9,12 @@ struct ProofFeedView: View {
         case following = 0
         case community = 1
         case proofs = 2
-        case moments = 3
 
         var title: String {
             switch self {
             case .following: return L10n.t("好友与我", "Friends & Me")
             case .community: return L10n.t("社区广场", "Community")
             case .proofs: return L10n.t("权威铁证", "Proofs")
-            case .moments: return L10n.t("日常", "Daily")
             }
         }
 
@@ -25,7 +23,6 @@ struct ProofFeedView: View {
             case .following: return "person.2.fill"
             case .community: return "globe.asia.australia.fill"
             case .proofs: return "shield.checkered"
-            case .moments: return "flame.fill"
             }
         }
     }
@@ -50,18 +47,16 @@ struct ProofFeedView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    // Feed Tabs (社区广场 / 关注好友 / 权威铁证 / 日常)
+                    // Feed Tabs (好友与我 / 社区广场 / 权威铁证)
                     feedSegmentedBar
 
                     switch selectedTab {
-                    case .community:
-                        communityFeedSection
                     case .following:
                         followingFeedSection
+                    case .community:
+                        communityFeedSection
                     case .proofs:
                         proofsFeedSection
-                    case .moments:
-                        momentsFeedSection
                     }
                 }
                 .frame(maxWidth: .infinity)
@@ -345,20 +340,6 @@ struct ProofFeedView: View {
                 ForEach(proofService.proofs) { proof in
                     proofCard(proof)
                 }
-            }
-        }
-    }
-
-    // 4. Moments Section (泵感日常)
-    private var momentsFeedSection: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            ForEach(momentService.moments) { moment in
-                GymMomentCardView(
-                    moment: moment,
-                    currentUserID: userID,
-                    onFistBump: { momentService.toggleFistBump(momentID: moment.id) },
-                    onFire: { momentService.toggleFire(momentID: moment.id) }
-                )
             }
         }
     }
