@@ -853,7 +853,7 @@ final class WorkoutManager: ObservableObject {
                 case .back:
                     return .deadlift
                 case .shoulders:
-                    return .overheadPress
+                    return .ohp
                 default:
                     return .bench
                 }
